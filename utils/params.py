@@ -5,6 +5,9 @@ print(f'Benchmark Parameters:')
 casio = os.environ.get('CASIO', None)
 assert casio is not None, 'CASIO environment variable not set (REQUIRED)'
 
+plat = os.environ.get('PLAT', None)
+assert plat is not None, 'PLAT environment variable not set (REQUIRED)'
+
 print(f'  Casio Directory: {casio}')
 
 devname = os.environ.get('DEV', 'cuda:0')
