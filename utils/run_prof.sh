@@ -10,6 +10,9 @@
 # NW = number of warmup steps
 # NI = number of benchmark iterations
 
+set -x
+set -e
+
 ODIR=$CASIO/output/$PLAT/$APP
 
 mkdir -p $ODIR

@@ -17,18 +17,38 @@ ODIR=$CASIO/output/$PLAT/$APP/
 
 mkdir -p $ODIR
 
+SAMP=${SAMP:-all}
+
+case SAMP in
+    all)
+        SAMP_NCU_FLAG=""
+        ;;
+    10th)
+        SAMP_NCU_FLAG='--kernel-id :::".*0"'
+        ;;
+    100th)
+        SAMP_NCU_FLAG='--kernel-id :::".*0"'
+        ;;
+    *)
+        echo "Unknown sampling mode: $SAMP"
+        exit 1
+        ;;
+esac
+
 NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
+    $SAMP_NCU_FLAG \
     --profile-from-start no \
     --page raw \
     --set full \
     --csv \
-    $* | tee $ODIR/ncu-$APP-train-b$BS-raw.txt
+    $* | tee $ODIR/ncu-$SAMP-$APP-train-b$BS-raw.txt
 
 NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
+    $SAMP_NCU_FLAG \
     --profile-from-start no \
     --print-source=sass \
     --page source \
     --set full \
     --csv \
-    $* | tee $ODIR/ncu-$APP-train-b$BS-sass.txt
+    $* | tee $ODIR/ncu-$SAMP-$APP-train-b$BS-sass.txt
 
