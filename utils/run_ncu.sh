@@ -19,7 +19,7 @@ mkdir -p $ODIR
 
 SAMP=${SAMP:-all}
 
-case SAMP in
+case $SAMP in
     all)
         SAMP_NCU_FLAG=""
         ;;
