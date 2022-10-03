@@ -10,7 +10,10 @@ from torch.utils.data import DataLoader
 from .samplers import DistributedVideoSampler
 
 import sys
-sys.path.append('/nobackup/medavies/casio/utils')
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import params
 import cudaprofile
 from torch_wrapper import benchmark_wrapper

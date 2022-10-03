@@ -1,8 +1,7 @@
 import os
 import sys
-
-CASIO_DIR = os.environ.get('CASIO', '/nobackup/medavies/casio')
-sys.path.append(f'{CASIO_DIR}/utils')
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import params
 import cudaprofile
 from torch_wrapper import benchmark_wrapper

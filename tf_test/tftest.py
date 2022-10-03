@@ -7,7 +7,10 @@ from tensorflow.keras import layers
 #tf.debugging.set_log_device_placement(True)
 
 import sys
-sys.path.append('../utils')
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import cudaprofile
 
 from tensorflow_wrapper import benchmark_wrapper

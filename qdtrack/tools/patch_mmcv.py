@@ -5,7 +5,10 @@ import time
 import torch
 
 import sys
-sys.path.append('/nobackup/medavies/casio/utils')
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import cudaprofile
 import params
 from torch_wrapper import benchmark_wrapper

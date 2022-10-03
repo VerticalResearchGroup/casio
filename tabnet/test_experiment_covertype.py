@@ -26,7 +26,10 @@ import tabnet_model
 import tensorflow as tf
 
 import sys
-sys.path.append('../utils')
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import cudaprofile
 
 from tensorflow_wrapper import benchmark_wrapper

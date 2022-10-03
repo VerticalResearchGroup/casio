@@ -5,7 +5,9 @@ import os.path as osp
 import time
 import sys
 
-sys.path.append('/nobackup/medavies/casio/utils')
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
+
 import params
 import cudaprofile
 from torch_wrapper import benchmark_wrapper

@@ -13,6 +13,17 @@ import argparse
 import datetime
 import numpy as np
 
+
+import sys
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
+import cudaprofile
+
+from torch_wrapper import benchmark_wrapper
+import params
+
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
@@ -31,12 +42,6 @@ from logger import create_logger
 from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper, \
     reduce_tensor
 
-import sys
-sys.path.append('../utils')
-import cudaprofile
-
-from torch_wrapper import benchmark_wrapper
-import params
 
 def parse_option():
     parser = argparse.ArgumentParser('Swin Transformer training and evaluation script', add_help=False)

@@ -7,7 +7,11 @@ import os
 import argparse
 import numpy as np
 
-sys.path.append('../utils')
+import sys
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import cudaprofile
 from torch_wrapper import benchmark_wrapper
 

@@ -23,7 +23,11 @@ from absl import logging
 import numpy as np
 
 import sys
-sys.path.append('./utils')
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
+
 import cudaprofile
 from tensorflow_wrapper import benchmark_wrapper
 import params

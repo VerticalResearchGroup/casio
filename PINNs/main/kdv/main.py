@@ -5,7 +5,11 @@
 import sys
 sys.path.insert(0, '../../Utilities/')
 
-sys.path.append('../../../utils')
+import sys
+import os
+
+CASIO=os.environ.get('CASIO')
+sys.path.append(f'{CASIO}/utils')
 import cudaprofile
 from tensorflow_wrapper import benchmark_wrapper
 import params
