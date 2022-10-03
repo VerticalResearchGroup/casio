@@ -27,7 +27,7 @@ case SAMP in
         SAMP_NCU_FLAG='--kernel-id :::".*0"'
         ;;
     100th)
-        SAMP_NCU_FLAG='--kernel-id :::".*0"'
+        SAMP_NCU_FLAG='--kernel-id :::".*00"'
         ;;
     *)
         echo "Unknown sampling mode: $SAMP"
