@@ -20,6 +20,12 @@ $ pip install -r requirements.txt
 
 **NOTE: mmcv-full will take a WHILE to install. This is a one-time thing.**
 
+
+### TensorFlow
+For tensorflow, use the utils/tf1-docker.sh script to launch a docker container.
+
+**NOTE: YOU WILL END UP SOURCE'ING env.sh TWICE!**
+
 ## Swin Transformer (Torch)
 ```bash
 $ conda activate casio-torch
@@ -51,7 +57,7 @@ $ python setup.py develop
 $ cd ..
 ```
 
-Running qdtrack:
+**Running qdtrack:**
 ```bash
 $ conda activate casio-torch
 $ source env.sh
@@ -62,6 +68,7 @@ $ ./runall.sh
 
 ## PINN (Tensorflow)
 ```
+$ source env.sh
 $ ./utils/tf1-docker.sh
 $ cd /work
 $ source env.sh
@@ -73,10 +80,34 @@ $ ./runall.sh
 
 ## tabnet (Tensorflow)
 ```
+$ source env.sh
 $ ./utils/tf1-docker.sh
 $ cd /work
 $ source env.sh
 ...
 $ cd tabnet
 $ ./runall.sh
+```
+
+## meshgraphnets (Tensorflow)
+**DOWNLOAD DATA AND RUN SETUP FIRST**
+```bash
+$ cd meshgraphnets
+$ wget cs.wisc.edu/~davies/mgn-datasets.tar.xz
+$ tar xvf mgn-datasets.tar.xz
+$ python setup.py develop
+$ cd ..
+```
+
+**Running meshgraphnets:**
+```
+$ source env.sh
+$ ./utils/tf1-docker.sh
+$ cd /work
+$ source env.sh
+...
+$ cd meshgraphnets
+$ pip install -r requirements
+$ cd /work
+$ ./meshgraphnets/runall.sh
 ```
