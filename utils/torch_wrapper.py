@@ -8,7 +8,7 @@ import os
 import params
 
 def benchmark_wrapper(appname, roi):
-    outdir = f'/nobackup/medavies/casio/output/{platform.node()}/{appname}'
+    outdir = f'{params.casio}/output/{params.plat}/{appname}'
     os.makedirs(outdir, exist_ok=True)
 
     print(f'Warmup with {params.nw} Iters')

@@ -13,6 +13,9 @@
 set -x
 set -e
 
+RUN_PROF=${RUN_PROF:-yes}
+[ "$RUN_PROF" = "no" ] && exit 0
+
 ODIR=$CASIO/output/$PLAT/$APP
 
 mkdir -p $ODIR

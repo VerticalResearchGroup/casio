@@ -13,6 +13,9 @@
 set -x
 set -e
 
+RUN_BENCH=${RUN_BENCH:-yes}
+[ "$RUN_BENCH" = "no" ] && exit 0
+
 ODIR=$CASIO/output/$PLAT/$APP
 
 mkdir -p $ODIR

@@ -13,6 +13,9 @@
 set -x
 set -e
 
+RUN_NCU=${RUN_NCU:-yes}
+[ "$RUN_NCU" = "no" ] && exit 0
+
 ODIR=$CASIO/output/$PLAT/$APP/
 
 mkdir -p $ODIR
@@ -24,10 +27,16 @@ case $SAMP in
         SAMP_NCU_FLAG=""
         ;;
     10th)
-        SAMP_NCU_FLAG='--kernel-id :::".*0"'
+        SAMP_NCU_FLAG='--kernel-id :::0|.*0'
+        ;;
+    20th)
+        SAMP_NCU_FLAG='--kernel-id :::0|.*(2|4|6|8|0)0'
+        ;;
+    50th)
+        SAMP_NCU_FLAG='--kernel-id :::0|.*(0|5)0'
         ;;
     100th)
-        SAMP_NCU_FLAG='--kernel-id :::".*00"'
+        SAMP_NCU_FLAG='--kernel-id :::0|.*00'
         ;;
     *)
         echo "Unknown sampling mode: $SAMP"
@@ -37,6 +46,7 @@ esac
 
 NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
     $SAMP_NCU_FLAG \
+    --target-processes all \
     --profile-from-start no \
     --page raw \
     --set full \
@@ -45,6 +55,7 @@ NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
 
 NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
     $SAMP_NCU_FLAG \
+    --target-processes all \
     --profile-from-start no \
     --print-source=sass \
     --page source \

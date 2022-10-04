@@ -10,6 +10,9 @@ assert plat is not None, 'PLAT environment variable not set (REQUIRED)'
 
 print(f'  Casio Directory: {casio}')
 
+appname = os.environ.get('APP', None)
+print(f'  Application Name: {appname}')
+
 devname = os.environ.get('DEV', 'cuda:0')
 print(f'  Device Name: {devname}')
 

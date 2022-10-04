@@ -13,6 +13,9 @@
 set -x
 set -e
 
+RUN_NSYS=${RUN_NSYS:-yes}
+[ "$RUN_NSYS" = "no" ] && exit 0
+
 ODIR=$CASIO/output/$PLAT/$APP
 
 mkdir -p $ODIR
