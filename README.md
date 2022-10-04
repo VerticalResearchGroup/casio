@@ -16,11 +16,11 @@ $ conda activate casio-torch
 
 # Install requirements
 $ pip install -r requirements.txt
-
 ```
 
-## Swin Transformer
+## Swin Transformer (Torch)
 ```bash
+$ conda activate casio-torch
 $ source env.sh
 ==============================================
 REMEMBER: RUN THIS INSIDE THE DOCKER CONTAINER
@@ -35,5 +35,47 @@ Platform: <type of gpu>
 Device: cuda:<N>
 
 $ cd Swin-Transformer
+$ ./runall.sh
+```
+
+## QD Track (Torch)
+**DOWNLOAD DATA AND RUN SETUP FIRST**
+```bash
+$ conda activate casio-torch
+$ cd qdtrack/
+$ wget cs.wisc.edu/~davies/qdtrack-data.tar.xz
+$ tar xvf qdtrack-data.tar.xz
+$ pip install git+git://github.com/bdd100k/bdd100k.git
+$ python setup.py develop
+$ cd ..
+```
+
+Running qdtrack:
+```bash
+$ conda activate casio-torch
+$ source env.sh
+...
+$ cd qdtrack
+$ ./runall.sh
+```
+
+## PINN (Tensorflow)
+```
+$ ./utils/tf1-docker.sh
+$ cd /work
+$ source env.sh
+...
+$ pip install pydoe
+$ cd PINNs
+$ ./runall.sh
+```
+
+## tabnet (Tensorflow)
+```
+$ ./utils/tf1-docker.sh
+$ cd /work
+$ source env.sh
+...
+$ cd tabnet
 $ ./runall.sh
 ```
