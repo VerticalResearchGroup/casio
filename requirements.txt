@@ -1,0 +1,20 @@
+--extra-index-url https://download.pytorch.org/whl/cu116
+torch
+--extra-index-url https://download.pytorch.org/whl/cu116
+torchvision
+--extra-index-url https://download.pytorch.org/whl/cu116
+torchaudio
+
+# Swin Transformer
+timm==0.4.12
+opencv-python
+termcolor==1.1.0
+yacs==0.1.8
+
+# QD Track
+lvis
+motmetrics
+numpy
+pycocotools
+mmcv-full
+mmdet
