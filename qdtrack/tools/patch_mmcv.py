@@ -3,8 +3,11 @@ import mmcv.parallel.data_container
 import mmcv.runner.epoch_based_runner as X
 import time
 import torch
-
 import sys
+import mmcv.ops
+
+N = sys.modules['mmcv.ops.nms']
+
 import os
 
 CASIO=os.environ.get('CASIO')
@@ -95,3 +98,28 @@ def train(self, data_loader, **kwargs):
 
 print('Monkey patching EpochBasedRunner.train...')
 X.EpochBasedRunner.train = train
+
+def forward(ctx, bboxes, scores, iou_threshold: float,
+            offset: int, score_threshold: float, max_num: int):
+    is_filtering_by_score = score_threshold > 0
+    if is_filtering_by_score:
+        valid_mask = scores > score_threshold
+        bboxes, scores = bboxes[valid_mask], scores[valid_mask]
+        valid_inds = torch.nonzero(
+            valid_mask, as_tuple=False).squeeze(dim=1)
+
+    # print("bboxes", bboxes)
+    # print("scores", scores)
+    # print("iou_threshold", iou_threshold)
+    # print("offset", offset)
+
+    inds = N.ext_module.nms(
+        bboxes.float(), scores.float(), iou_threshold=float(iou_threshold), offset=int(offset))
+
+    if max_num > 0:
+        inds = inds[:max_num]
+    if is_filtering_by_score:
+        inds = valid_inds[inds]
+    return inds
+
+N.NMSop.forward = forward

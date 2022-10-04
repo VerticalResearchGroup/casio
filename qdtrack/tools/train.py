@@ -3,15 +3,17 @@ import copy
 import os
 import os.path as osp
 import time
+
 import sys
+import os
 
 CASIO=os.environ.get('CASIO')
 sys.path.append(f'{CASIO}/utils')
-
 import params
 import cudaprofile
 from torch_wrapper import benchmark_wrapper
 import patch_mmcv
+import patch_mmdet
 
 import mmcv
 import torch

@@ -7,7 +7,7 @@ torchaudio
 
 # Swin Transformer
 timm==0.4.12
-opencv-python
+opencv-python-headless<4.3
 termcolor==1.1.0
 yacs==0.1.8
 
@@ -16,5 +16,7 @@ lvis
 motmetrics
 numpy
 pycocotools
-mmcv-full
-mmdet
+mmcv-full==1.6.1
+mmdet==2.25.1
+seaborn==0.12.0
+git+https://github.com/bdd100k/bdd100k.git

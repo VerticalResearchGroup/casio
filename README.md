@@ -18,6 +18,8 @@ $ conda activate casio-torch
 $ pip install -r requirements.txt
 ```
 
+**NOTE: mmcv-full will take a WHILE to install. This is a one-time thing.**
+
 ## Swin Transformer (Torch)
 ```bash
 $ conda activate casio-torch
@@ -45,7 +47,6 @@ $ conda activate casio-torch
 $ cd qdtrack/
 $ wget cs.wisc.edu/~davies/qdtrack-data.tar.xz
 $ tar xvf qdtrack-data.tar.xz
-$ pip install git+git://github.com/bdd100k/bdd100k.git
 $ python setup.py develop
 $ cd ..
 ```
