@@ -6,3 +6,5 @@ __pycache__
 *.nsys-rep
 *.qdrep
 *.swp
+*.tar.xz
+results/
