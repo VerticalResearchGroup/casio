@@ -40,7 +40,7 @@ class Model(snt.AbstractModule):
   def _build_graph(self, inputs, is_training):
     """Builds input graph."""
     # construct graph nodes
-    node_type = tf.one_hot(inputs['node_type'][:, 0], common.NodeType.SIZE)
+    node_type = tf.one_hot(inputs['node_type'][:, 0], common.NodeType.SIZE, dtype=tf.float16)
     node_features = tf.concat([inputs['velocity'], node_type], axis=-1)
 
     # construct graph edges
