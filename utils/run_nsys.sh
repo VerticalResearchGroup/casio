@@ -21,8 +21,8 @@ ODIR=$CASIO/output/$PLAT/$APP
 mkdir -p $ODIR
 
 NSYS=/opt/nvidia/nsight-systems/2022.1.3/bin/nsys
-[ -x "$NSYS" ] || NCU=/usr/local/cuda/bin/nsys
-[ -x "$NSYS" ] || NCU=nsys
+[ -x "$NSYS" ] || NSYS=/usr/local/cuda/bin/nsys
+[ -x "$NSYS" ] || NSYS=nsys
 echo "Using nsys: $NSYS"
 
 MODE=nsys $NSYS profile \
