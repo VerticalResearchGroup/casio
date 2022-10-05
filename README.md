@@ -95,7 +95,6 @@ $ ./runall.sh
 $ cd meshgraphnets
 $ wget cs.wisc.edu/~davies/mgn-datasets.tar.xz
 $ tar xvf mgn-datasets.tar.xz
-$ python setup.py develop
 $ cd ..
 ```
 
