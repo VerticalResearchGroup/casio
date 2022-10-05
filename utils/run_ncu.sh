@@ -44,7 +44,12 @@ case $SAMP in
         ;;
 esac
 
-NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
+NCU=/opt/nvidia/nsight-compute/2022.2.1/ncu
+[ -x "$NCU" ] || NCU=/usr/local/cuda/bin/ncu
+[ -x "$NCU" ] || NCU=ncu
+echo "Using ncu: $NCU"
+
+NW=1 NI=1 MODE=ncu $NCU \
     $SAMP_NCU_FLAG \
     --target-processes all \
     --profile-from-start no \
@@ -53,7 +58,7 @@ NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
     --csv \
     $* | tee $ODIR/ncu-$SAMP-$APP-train-b$BS-raw.txt
 
-NW=1 NI=1 MODE=ncu /opt/nvidia/nsight-compute/2022.2.1/ncu \
+NW=1 NI=1 MODE=ncu $NCU \
     $SAMP_NCU_FLAG \
     --target-processes all \
     --profile-from-start no \

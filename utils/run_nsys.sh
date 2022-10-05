@@ -20,7 +20,12 @@ ODIR=$CASIO/output/$PLAT/$APP
 
 mkdir -p $ODIR
 
-MODE=nsys nsys profile \
+NSYS=/opt/nvidia/nsight-systems/2022.1.3/bin/nsys
+[ -x "$NSYS" ] || NCU=/usr/local/cuda/bin/nsys
+[ -x "$NSYS" ] || NCU=nsys
+echo "Using nsys: $NSYS"
+
+MODE=nsys $NSYS profile \
     -t cuda,cudnn,cublas \
     -o $ODIR/nsys-$APP-train-b$BS-n$NI \
     -f true \
