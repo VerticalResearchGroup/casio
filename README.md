@@ -46,6 +46,15 @@ $ cd Swin-Transformer
 $ ./runall.sh
 ```
 
+## MuZero (Torch)
+```bash
+$ conda activate casio-torch
+$ source env.sh
+...
+$ cd muzero
+$ ./runall.sh
+```
+
 ## QD Track (Torch)
 **DOWNLOAD DATA AND RUN SETUP FIRST**
 ```bash
