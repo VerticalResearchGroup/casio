@@ -20,3 +20,6 @@ mmcv-full==1.6.1
 mmdet==2.25.1
 seaborn==0.12.0
 git+https://github.com/bdd100k/bdd100k.git
+
+#MuZero
+tensorboard
