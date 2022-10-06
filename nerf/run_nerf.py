@@ -750,7 +750,7 @@ def train():
         print('done')
         i_batch = 0
 
-    N_iters = start + 50#1000000
+    N_iters = start + 60#1000000
     print('Begin')
     print('TRAIN views are', i_train)
     print('TEST views are', i_test)
@@ -762,8 +762,8 @@ def train():
     writer.set_as_default()
 
     for i in range(start, N_iters):
-        time0 = time.time()
-        if i==20:
+        if i==(start+30):
+         time0 = time.time()
          cudaprofile.start()
 
         # Sample random ray batch
@@ -836,12 +836,12 @@ def train():
         gradients = tape.gradient(loss, grad_vars)
         optimizer.apply_gradients(zip(gradients, grad_vars))
         #en = time.time()
-        dt = time.time()-time0
         #print('DNN backward pass time: ',(en-st))
-        if i==20:
+        if i==(N_iters-1):
          cudaprofile.stop()
+         dt = time.time()-time0
          print('iter time {:.05f}'.format(dt))
-         break
+         print('Throughput {:.05f}'.format((30*N_rand)/dt)) #For 30 iterations
 
         #####           end            #####
 
@@ -886,7 +886,7 @@ def train():
                         gt_imgs=images[i_test], savedir=testsavedir)
             print('Saved test set')
 
-        if i % args.i_print == 0 or i < 51:
+        if i % args.i_print == 0:
 
             #print(expname, i, psnr.numpy(), loss.numpy(), global_step.numpy())
             print('iter time {:.05f}'.format(dt))
