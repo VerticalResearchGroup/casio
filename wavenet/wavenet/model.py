@@ -7,7 +7,7 @@ from .ops import causal_conv, mu_law_encode
 def create_variable(name, shape):
     '''Create a convolution filter variable with the specified name and shape,
     and initialize it using Xavier initialition.'''
-    initializer = tf.contrib.layers.xavier_initializer_conv2d(dtype=tf.float16)
+    initializer = tf.contrib.layers.xavier_initializer_conv2d()
     variable = tf.Variable(initializer(shape=shape), name=name)
     return variable
 
@@ -24,7 +24,7 @@ def create_embedding_table(name, shape):
 def create_bias_variable(name, shape):
     '''Create a bias variable with the specified name and shape and initialize
     it to zero.'''
-    initializer = tf.constant_initializer(value=0.0, dtype=tf.float16)
+    initializer = tf.constant_initializer(value=0.0)
     return tf.Variable(initializer(shape=shape), name)
 
 
@@ -275,7 +275,7 @@ class WaveNetModel(object):
         weights_filter = variables['filter']
         weights_gate = variables['gate']
         conv_filter = causal_conv(input_batch, weights_filter, dilation)
-        conv_gate = causal_conv(input_batch, tf.cast(weights_gate, tf.float16), dilation)
+        conv_gate = causal_conv(input_batch, weights_gate, dilation)
 
         if global_condition_batch is not None:
             weights_gc_filter = variables['gc_filtweights']
@@ -394,7 +394,7 @@ class WaveNetModel(object):
     def _create_network(self, input_batch, global_condition_batch):
         '''Construct the WaveNet network.'''
         outputs = []
-        current_layer = tf.cast(input_batch, tf.float16)
+        current_layer = input_batch
         # Pre-process the input with a regular convolution
         current_layer = self._create_causal_layer(current_layer)
         output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
