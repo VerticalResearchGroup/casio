@@ -20,4 +20,4 @@ ODIR=$CASIO/output/$PLAT/$APP
 
 mkdir -p $ODIR
 
-MODE=prof $*
+MODE=prof $* | tee $ODIR/prof-$APP-train-b$BS-n$NI.txt
