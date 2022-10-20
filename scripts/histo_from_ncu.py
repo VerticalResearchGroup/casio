@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 
 
 stats_of_interest = ['gpc__cycles_elapsed.max', 'sm__throughput.avg.pct_of_peak_sustained_elapsed', 'gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed', 'l1tex__throughput.avg.pct_of_peak_sustained_active', 'lts__throughput.avg.pct_of_peak_sustained_elapsed', 'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed', 'sm__issue_active.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_alu_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_fma_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_adu.avg.pct_of_peak_sustained_elapsed', 'sm__mio2rf_writeback_active.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_xu.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_shared_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed']
+ignore_list = [stats_of_interest[0]]
 
 def get_histograms(filename):
     # create a temp file with just csv contents to pass to pandas.read_csv
@@ -31,6 +32,7 @@ def get_histograms(filename):
     df2 = df.filter(stats_of_interest, axis=1)
     histograms = {}
     averages = {}
+    flamegraphs = {}
     nbins = 50
     total_cycles = 0
     for i,y in enumerate(df2['gpc__cycles_elapsed.max']):
@@ -41,7 +43,9 @@ def get_histograms(filename):
         if (x == 'gpc__cycles_elapsed.max'):
             continue
         avg = 0.0
+        flamegraphs[x] = []
         histograms[x] = [0 for i in range(nbins+1)] 
+        running_c = 0
         for i,y in enumerate(df2[x]):
             if (i == 0):
                 # throw away 1st row
@@ -54,17 +58,35 @@ def get_histograms(filename):
                 f = c/total_cycles
                 avg = avg + f * float(y)
                 histograms[x][bin] = histograms[x][bin]+f
+                running_c += c
+                f = running_c/total_cycles
+                z = [f,float(y)]
+                flamegraphs[x].append(z)
         averages[x] = avg
 #        print(x, histograms[x])
-    return histograms, averages
-
-histograms1, averages1 = get_histograms(sys.argv[1])
-histograms2, averages2 = get_histograms(sys.argv[2])
+    return histograms, averages, flamegraphs
+if len(sys.argv) != 4:
+    print("need 3 args: file1 file2 outputprefix")
+histograms1, averages1, flamegraphs1 = get_histograms(sys.argv[1])
+histograms2, averages2, flamegraphs2 = get_histograms(sys.argv[2])
+output_prefix = sys.argv[3]
+filename = output_prefix + 'feature-avg' + '.csv'
+f0 = open(filename, 'w')
 
 for x in stats_of_interest:
-    if (x == 'gpc__cycles_elapsed.max'):
+#    if (x == 'gpc__cycles_elapsed.max'):
+    if (x in ignore_list):
         continue
-    print("feature ", x, averages1[x], averages2[x])
+    if averages1[x] == 0:
+        continue
+    print(x)
+    filename = output_prefix + 'flame.' + x + '.csv'
+    f = open(filename, 'w')
+    for j in flamegraphs1[x]:
+        print(j[0], j[1], file=f)
+    f.close()
+    rel_err = 100*(averages1[x] - averages2[x])/averages1[x]
+    print(x, averages1[x], averages2[x], "{:2.10f}".format(rel_err), file=f0)
     for i,y in enumerate(histograms1[x]):
         if (y == 0):
             rel_err = 0
@@ -72,4 +94,4 @@ for x in stats_of_interest:
             rel_err = (y - histograms2[x][i])/y
 #        print(i, y, histograms2[x][i], rel_err)
 
-
+f0.close()
