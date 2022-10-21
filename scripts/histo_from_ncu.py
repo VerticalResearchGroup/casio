@@ -7,6 +7,7 @@ from sklearn.decomposition import PCA
 
 stats_of_interest = ['gpc__cycles_elapsed.max', 'sm__throughput.avg.pct_of_peak_sustained_elapsed', 'gpu__compute_memory_throughput.avg.pct_of_peak_sustained_elapsed', 'l1tex__throughput.avg.pct_of_peak_sustained_active', 'lts__throughput.avg.pct_of_peak_sustained_elapsed', 'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed', 'sm__issue_active.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_alu_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_fma_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_lsu.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_adu.avg.pct_of_peak_sustained_elapsed', 'sm__mio2rf_writeback_active.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_elapsed', 'sm__inst_executed_pipe_xu.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_fp64_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_shared_cycles_active.avg.pct_of_peak_sustained_elapsed', 'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed']
 ignore_list = [stats_of_interest[0]]
+launch_stats = ['launch__block_dim_x','launch__block_dim_y','launch__block_dim_z','launch__block_size', 'launch__grid_dim_x','launch__grid_dim_y','launch__grid_dim_z','launch__grid_size','launch__occupancy_limit_blocks','launch__occupancy_limit_registers','launch__occupancy_limit_shared_mem','launch__occupancy_limit_warps','launch__occupancy_per_block_size','launch__occupancy_per_register_count','launch__occupancy_per_shared_mem_size','launch__registers_per_thread','launch__registers_per_thread_allocated','launch__shared_mem_config_size','launch__shared_mem_per_block','launch__shared_mem_per_block_allocated','launch__shared_mem_per_block_driver','launch__shared_mem_per_block_dynamic','launch__shared_mem_per_block_static','launch__thread_count','launch__waves_per_multiprocessor']
 
 def get_histograms(filename):
     # create a temp file with just csv contents to pass to pandas.read_csv
@@ -30,6 +31,7 @@ def get_histograms(filename):
     #quit()
     # 'launch__thread_count', 'launch__block_size', 'launch__thread_count', 'launch__waves_per_multiprocessor', 'launch__registers_per_thread']
     df2 = df.filter(stats_of_interest, axis=1)
+    df3 = df.filter(launch_stats, axis=1)
     histograms = {}
     averages = {}
     flamegraphs = {}
@@ -60,7 +62,10 @@ def get_histograms(filename):
                 histograms[x][bin] = histograms[x][bin]+f
                 running_c += c
                 f = running_c/total_cycles
-                z = [f,float(y)]
+                s = ''
+                for l in launch_stats:
+                       s = s + str(df3[l][i])+' '	
+                z = [f,float(y),s]
                 flamegraphs[x].append(z)
         averages[x] = avg
 #        print(x, histograms[x])
@@ -83,7 +88,7 @@ for x in stats_of_interest:
     filename = output_prefix + 'flame.' + x + '.csv'
     f = open(filename, 'w')
     for j in flamegraphs1[x]:
-        print(j[0], j[1], file=f)
+        print(j[0], j[1],j[2], file=f)
     f.close()
     rel_err = 100*(averages1[x] - averages2[x])/averages1[x]
     print(x, averages1[x], averages2[x], "{:2.10f}".format(rel_err), file=f0)
