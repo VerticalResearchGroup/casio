@@ -11,6 +11,9 @@ from scipy.spatial.distance import squareform
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np 
+from os.path import exists
+
+
 stats_of_interest = ['Source', 'Instructions Executed']
 
 def get_df(filename):
@@ -55,8 +58,12 @@ prefix=sys.argv[1]
 nfiles=int(sys.argv[2])
 kernel_names_list = []
 for i in range(1,nfiles+1):
-    fname=prefix+"_"+str(i)+"-sass.csv"
-    k_filename=prefix+"_"+str(i)+"-kernelname.txt"
+    fname=prefix+str(i)+"-sass.csv"
+    k_filename=prefix+str(i)+"-kernelname.txt"
+    if exists(fname):
+       pass
+    else:
+       break
     with open(k_filename, 'r') as file:
        data = file.read().replace('\n', '')
     data = data.split('"')[3]

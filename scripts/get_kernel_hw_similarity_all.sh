@@ -12,7 +12,7 @@ for a in *; do
 		for y in *ncu-10th-*raw.txt; do
 			batch_size=`python3 $CASIO_ROOT/scripts/get_batch_size_from_name.py $y`
 			echo $y" "$batch_size
-			python3 $CASIO_ROOT/scripts/kernel_similarity.py $y > $outdir"/batch-"$batch_size"_ncu_kernel_similarity.txt"
+			python3 $CASIO_ROOT/scripts/kernel_hw_similarity.py $y > $outdir"/batch-"$batch_size"_ncu_kernel_similarity.txt"
 			grep -A1 "Process ID" $y > $f1
 			grep "127.0.0.1" $y >> $f2
 		done
