@@ -93,9 +93,9 @@ k=np.arange(0, len(df2), 1).tolist()
 df2 = pdist(df2, 'cosine')
 df4 = pd.DataFrame(squareform(df2), columns=k, index=k)
 print(df4)
-#plt.figure(figsize=(10,10))
-#sns.heatmap(df4)
-#plt.show()
+plt.figure(figsize=(10,10))
+sns.heatmap(df4)
+plt.show()
 for x in keep_list:
    print('rep-kernel-id: ', x, df.loc[x+1,:].to_list(), df_names['Kernel Name'][x+1])
 for x in set_of_kernel_names:
