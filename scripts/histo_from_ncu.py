@@ -1,4 +1,5 @@
 import pandas as pd
+import pdb
 import sys
 import tempfile
 from sklearn.preprocessing import StandardScaler
@@ -62,10 +63,10 @@ def get_histograms(filename):
                 histograms[x][bin] = histograms[x][bin]+f
                 running_c += c
                 g = running_c/total_cycles
-                s = ''
+                z = [g,float(y),f]
                 for l in launch_stats:
-                       s = s + str(df3[l][i])+' '	
-                z = [g,float(y),f,s]
+                       #s = s + str(df3[l][i])+' '	
+                       z.append(str(df3[l][i]))
                 flamegraphs[x].append(z)
         averages[x] = avg
 #        print(x, histograms[x])
@@ -87,8 +88,10 @@ for x in stats_of_interest:
     print(x)
     filename = output_prefix + 'flame.' + x + '.csv'
     f = open(filename, 'w')
+    headers=['cumm-fraction-time', 'metric', 'fraction-time'] + launch_stats
+    print(headers, file=f)
     for j in flamegraphs1[x]:
-        print(j[0], j[1],j[2],j[3],file=f)
+       print(j, file=f)
     f.close()
     rel_err = 100*(averages1[x] - averages2[x])/averages1[x]
     print(x, averages1[x], averages2[x], "{:2.10f}".format(rel_err), file=f0)
