@@ -20,7 +20,7 @@ for filename in glob.glob(f'{utils.CASIO}/casio-results/{plat}/{app}/*b{batch}-*
         prof_file = filename
         break
 
-print(f'Found profile file: {prof_file}')
+print(f'Found profile file: {prof_file}', file=sys.stderr)
 
 trace : list[utils.FrameworkOp]
 
