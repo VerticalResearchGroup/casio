@@ -39,7 +39,7 @@ def parse_tf_op(line):
     if '@@void' in line:
         line = line.replace('@@void', '').strip()
 
-    regex = r"([\w/]+)\s+[\w.]+\s\((\d+.\d+)%,\s*(\d+.\d+)%\),\s+([\w.]+)\s+\((\d+.\d+)%,\s*(\d+.\d+)%\),\s+([\w.]+)\s+\((\d+.\d+)%,\s*(\d+.\d+)%\),\s+([\w.]+)\s+\((\d+.\d+)%,\s*(\d+.\d+)%\)"
+    regex = r"([\w/_-]+)\s+[\w.]+\s\((\d+.\d+)%,\s*(\d+.\d+)%\),\s+([\w.]+)\s+\((\d+.\d+)%,\s*(\d+.\d+)%\),\s+([\w.]+)\s+\((\d+.\d+)%,\s*(\d+.\d+)%\),\s+([\w.]+)\s+\((\d+.\d+)%,\s*(\d+.\d+)%\)"
     m = re.match(regex, line)
 
     assert m, f'Failed to parse line: {line}'
@@ -50,6 +50,8 @@ def parse_tf_op(line):
         accel_time = float(accel_time_str[:-2]) / 1e3
     elif accel_time_str.endswith('us'):
         accel_time = float(accel_time_str[:-2]) / 1e6
+    elif accel_time_str.endswith('sec'):
+        accel_time = float(accel_time_str[:-3])
     else:
         assert False, f'Unknown time units: {accel_time_str}'
 
