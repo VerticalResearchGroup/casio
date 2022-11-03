@@ -17,13 +17,13 @@ class CudaLaunchKernel:
     accel_time_us : float = 0
 
 def parse_torch_prof(filename):
-    print(f'Loading {filename}')
+    # print(f'Loading {filename}')
     jd = json.load(open(filename))
     aten_ops = []
     cuda_launch_kernels = []
     kernel_durations = {}
 
-    print(f'Parsing Events for {filename}...')
+    # print(f'Parsing Events for {filename}...')
     for ev in jd['traceEvents']:
         if ev['name'].startswith('aten::'):
             aten_ops.append(AtenOp(ev['name'], ev['ts'], ev['ts'] + ev['dur']))
@@ -57,7 +57,7 @@ def parse_torch_prof(filename):
 
         i = j
 
-    print(f'Stitching {len(aten_ops)} events for {filename} ({len(cuda_launch_kernels)} cuda kernels)...')
+    # print(f'Stitching {len(aten_ops)} events for {filename} ({len(cuda_launch_kernels)} cuda kernels)...')
     trace = []
     ki = 0
     for atop in deduped_aten_ops:

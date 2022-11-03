@@ -5,6 +5,7 @@ import tfprof
 import torchprof
 import sys
 import glob
+import os
 
 plat = sys.argv[1]
 app = sys.argv[2]
@@ -13,13 +14,21 @@ batch = int(sys.argv[3])
 
 prof_file = None
 for filename in glob.glob(f'{utils.CASIO}/casio-results/{plat}/{app}/*b{batch}-*'):
-    if 'prof' in filename and filename.endswith('.txt'):
-        prof_file = filename
-        break
-    elif 'trace' in filename and filename.endswith('.json'):
+    if os.path.basename(filename).startswith('prof') and filename.endswith('.txt'):
         prof_file = filename
         break
 
+# Want to override if there is a json trace present
+for filename in glob.glob(f'{utils.CASIO}/casio-results/{plat}/{app}/*b{batch}-*'):
+    if 'trace' in filename and filename.endswith('.json'):
+        prof_file = filename
+        break
+
+
+if prof_file is None:
+    exit(-1)
+
+# assert prof_file is not None, f'Could not find profile file for {plat}/{app}/b{batch}'
 print(f'Found profile file: {prof_file}', file=sys.stderr)
 
 trace : list[utils.FrameworkOp]

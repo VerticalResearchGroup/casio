@@ -44,7 +44,6 @@ TRACE_APPS= \
 	swin-swinv2_base_patch4_window16_256 \
 	swin-swinv2_large_patch4_window12_192_22k \
 	swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft \
-	tabnet \
 	tacotron2 \
 	wavenet
 

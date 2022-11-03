@@ -4,6 +4,27 @@ from dataclasses import dataclass
 
 CASIO = os.environ.get('CASIO', '.')
 
+apps = [
+    'meshgraphnets-cfd',
+    'meshgraphnets-cloth',
+    'muzero',
+    'nerf',
+    'pinn-ac',
+    'pinn-kdv',
+    'pinn-navier-stokes',
+    'pinn-schrodinger',
+    'qdtrack',
+    'swin-swinv2_base_patch4_window12_192_22k',
+    'swin-swinv2_base_patch4_window16_256',
+    'swin-swinv2_large_patch4_window12_192_22k',
+    'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
+    'tabnet',
+    'tacotron2',
+    'wavenet'
+]
+
+plats = ['p100', 'v100', 'a100']
+
 stats_of_interest = [
     'gpc__cycles_elapsed.max',
     'sm__throughput.avg.pct_of_peak_sustained_elapsed',
@@ -78,35 +99,46 @@ fw_opname_map = {
     # TensorFlow Ops
     'Mul': 'mul',
     'Add': 'add',
+    'AddV2': 'add',
     'Sub': 'sub',
     'RealDiv': 'div',
     'MatMul': 'matmul',
     'Relu': 'relu',
-    'ReluGrad': 'relu-bwd',
-    'Conv2D': 'conv2d',
-    'Conv3D': 'conv3d',
+    'Tanh': 'tanh',
+    'Conv2D': 'conv',
+    'Conv2DBackpropInput': 'conv-bwd',
+    'Conv2DBackpropFilter': 'conv-bwd',
+    'Conv3D': 'conv',
+    'Conv3DBackpropInput': 'conv-bwd',
+    'Conv3DBackpropFilter': 'conv-bwd',
     'Sum': 'sum',
+    'Transpose': 'transpose',
+    'DynamicStitch': 'dynamic_stitch',
 
     # PyTorch Ops
-    'aten::mul': 'mul',
-    'aten::add': 'add',
-    'aten::sub': 'sub',
-    'aten::div': 'div',
-    'aten::mul_': 'mul',
-    'aten::add_': 'add',
-    'aten::sub_': 'sub',
-    'aten::div_': 'div',
-    'aten::mm': 'matmul',
-    'aten::bmm': 'matmul',
-    'aten::relu': 'relu',
-    'aten::relu_': 'relu',
-    'aten::conv2d': 'conv2d',
-    'aten::conv3d': 'conv3d',
+    'mm': 'matmul',
+    'bmm': 'matmul',
+    'linear': 'matmul',
+    'convolution_backward': 'conv-bwd',
+    '_softmax_backward_data': 'softmax-bwd',
+    'native_batch_norm_backward': 'batch_norm-bwd',
+    'native_layer_norm_backward': 'layer_norm-bwd',
 }
 
 def normalize_fw_opname(opname):
+    if opname.endswith('_'): opname = opname[:-1]
+
+    if opname.startswith('aten::'):
+        opname = opname[6:]
+
     if opname in fw_opname_map:
         return fw_opname_map[opname]
+
+    if opname.endswith('Grad'):
+        fwd_opname = opname[:-4]
+        if fwd_opname in fw_opname_map:
+            return fw_opname_map[fwd_opname] + '-bwd'
+
     return opname
 
 @dataclass
