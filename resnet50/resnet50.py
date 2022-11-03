@@ -12,15 +12,16 @@ import os
 
 CASIO=os.environ.get('CASIO')
 sys.path.append(f'{CASIO}/utils')
+import params
 import cudaprofile
 from torch_wrapper import benchmark_wrapper
 
-devname = os.environ.get('DEV', 'cuda:0')
+devname = params.devname
 print(f'Device: {devname}')
-mode = sys.argv[1]
-B = int(sys.argv[2])
+
+B = params.bs
 W = 20
-N = int(sys.argv[3])
+N = params.ni
 
 print(f'Batch Size: {B}, Warmup: {W} iters, Benchmark: {N} iters')
 dev = torch.device(devname)
@@ -37,4 +38,4 @@ def roi():
     opt.step()
     torch.cuda.synchronize()
 
-benchmark_wrapper('resnet50', roi, mode, W, N, B)
+benchmark_wrapper('resnet50', roi)
