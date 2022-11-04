@@ -23,6 +23,25 @@ apps = [
     'wavenet'
 ]
 
+app_pretty_names = {
+    'meshgraphnets-cfd': 'MGN-CFD',
+    'meshgraphnets-cloth': 'MGN-Cloth',
+    'muzero': 'MuZero',
+    'nerf': 'NeRF',
+    'pinn-ac': 'PINN-AC',
+    'pinn-kdv': 'PINN-KdV',
+    'pinn-navier-stokes': 'PINN-NS',
+    'pinn-schrodinger': 'PINN-Schr.',
+    'qdtrack': 'QDTrack',
+    'swin-swinv2_base_patch4_window12_192_22k': 'SwinV2-B*',
+    'swin-swinv2_base_patch4_window16_256': 'SwinV2-B',
+    'swin-swinv2_large_patch4_window12_192_22k': 'SwinV2-L',
+    'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft': 'SwinV2-L-FT',
+    'tabnet': 'TabNet',
+    'tacotron2': 'Tacotron2',
+    'wavenet': 'WaveNet'
+}
+
 plats = ['p100', 'v100', 'a100']
 
 stats_of_interest = [
@@ -119,11 +138,32 @@ fw_opname_map = {
     'mm': 'matmul',
     'bmm': 'matmul',
     'linear': 'matmul',
+    'conv2d': 'conv',
+    'conv3d': 'conv',
+    'conv1d': 'conv',
+    'lstm_cell': 'lstm',
     'convolution_backward': 'conv-bwd',
     '_softmax_backward_data': 'softmax-bwd',
     'native_batch_norm_backward': 'batch_norm-bwd',
     'native_layer_norm_backward': 'layer_norm-bwd',
 }
+def get_large_batch_size(plat, query_app):
+    batch_sizes = {}
+
+    with open(f'{CASIO}/casio-results/summaries/{plat}-large-batch-list') as f:
+        for line in f:
+            [plat, app, batchstr] = line.strip().split('/')
+            batch = int(batchstr.split('-')[-1])
+            batch_sizes[app] =  batch
+
+    return batch_sizes[query_app]
+
+
+def parse_nsys_kernsum(line):
+    regex = r'([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),(.*)'
+    m = re.match(regex, line)
+    assert m is not None, f'Failed to parse line: "{line}"'
+    return m.group(9)
 
 def normalize_fw_opname(opname):
     if opname.endswith('_'): opname = opname[:-1]

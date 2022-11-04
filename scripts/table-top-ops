@@ -1,0 +1,109 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+
+all_unique_ops = set()
+
+print('\\begin{tabular}{lrrr}')
+print('\\textbf{{Op Name}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
+print('\\hline')
+for app in utils.apps:
+    # print()
+    # print(f'{app}:')
+
+    traces = {}
+    no_data = False
+    for plat in utils.plats:
+        filename = f'{utils.CASIO}/casio-results/postproc/{plat}/{app}/op-trace-large-batch.csv'
+
+        if not os.path.exists(filename):
+            # print(f'Missing data for {app}/{plat}')
+            no_data = True
+            break
+
+        trace = []
+        with open(filename) as f:
+            for line in f:
+                opname, accel_time_str = line.strip().split(',')
+                accel_time = float(accel_time_str)
+                trace.append(utils.FrameworkOp(
+                    utils.normalize_fw_opname(opname),
+                    accel_time
+                ))
+
+        traces[plat] = trace
+
+    if no_data: continue
+
+    for plat in utils.plats:
+        total_time = sum(op.accel_time for op in traces[plat])
+        if total_time == 0: no_data = True
+
+    if no_data: continue
+
+
+    unqiue_op_names = set([
+        op.name for op in traces['a100']
+    ])
+
+    all_unique_ops = all_unique_ops.union(unqiue_op_names)
+    # print(f'    # Unique Ops: {len(unqiue_op_names)}')
+
+    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
+    print(f'\\multicolumn{{4}}{{c}}{{\\textbf{{{prettyname} ({len(unqiue_op_names)} / {len(all_unique_ops)} uniq.)}}}} \\\\')
+    print('\\hline')
+
+    def runtime_contrib(opname, plat):
+        total_time = sum(op.accel_time for op in traces[plat])
+        return sum(op.accel_time for op in traces[plat] if op.name == opname) / total_time
+
+    contrib = {}
+    top_ops = set()
+
+    for plat in utils.plats:
+        total_time = sum(op.accel_time for op in traces[plat])
+
+        if total_time == 0: continue
+
+        contrib[plat] = [
+            (opname, runtime_contrib(opname, plat))
+            for opname in unqiue_op_names
+        ]
+
+        contrib[plat].sort(key=lambda x: x[1], reverse=True)
+
+        for opname, frac in contrib[plat][:3]:
+            top_ops.add(opname)
+
+    combined_top5 = [
+        (
+            opname,
+            runtime_contrib(opname, 'p100'),
+            runtime_contrib(opname, 'v100'),
+            runtime_contrib(opname, 'a100'),
+        )
+        for opname in top_ops
+    ]
+
+    top5_p100_frac = sum(frac for opname, frac, _, _ in combined_top5)
+    top5_v100_frac = sum(frac for opname, _, frac, _ in combined_top5)
+    top5_a100_frac = sum(frac for opname, _, _, frac in combined_top5)
+
+    other_p100_frac = 1 - top5_p100_frac
+    other_v100_frac = 1 - top5_v100_frac
+    other_a100_frac = 1 - top5_a100_frac
+
+    combined_top5.sort(key=lambda x: x[3], reverse=True)
+
+    for opname, p100, v100, a100 in combined_top5:
+        opname_str = opname.replace('_', '\\_')
+        print(f'{opname_str} & {p100*100:.2f}\\% & {v100*100:.2f}\\% & {a100*100:.2f}\\% \\\\')
+
+
+
+    print(f'Other & {other_p100_frac*100:.2f}\\% & {other_v100_frac*100:.2f}\\% & {other_a100_frac*100:.2f}\\% \\\\')
+    print('\\hline')
+
+print('\\end{tabular}')

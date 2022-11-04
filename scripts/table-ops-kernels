@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+
+all_unique_ops = set()
+
+print('\\begin{tabular}{lrrr}')
+print(f'        &     & \\multicolumn{{3}}{{c}}{{\\textbf{{Cuda Kernels}}}}')
+print('\\textbf{{Op Name}} & \\textbf{{Ops}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
+print('\\hline')
+for app in utils.apps:
+    # print()
+    # print(f'{app}:')
+
+    no_data = False
+    optrace_file = f'{utils.CASIO}/casio-results/postproc/a100/{app}/op-trace-large-batch.csv'
+
+    if not os.path.exists(optrace_file): continue
+
+    trace = []
+    with open(optrace_file) as f:
+        for line in f:
+            opname, accel_time_str = line.strip().split(',')
+            accel_time = float(accel_time_str)
+            trace.append(utils.FrameworkOp(
+                utils.normalize_fw_opname(opname),
+                accel_time
+            ))
+
+    if no_data: continue
+    if sum(op.accel_time for op in trace) == 0: continue
+
+    unqiue_op_names = set([ op.name for op in trace ])
+    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
+
+    cols = [prettyname, len(unqiue_op_names)]
+
+    for plat in utils.plats:
+        batch = utils.get_large_batch_size(plat, app)
+        gpukernsum_file = f'{utils.CASIO}/casio-results/summaries/{plat}/{app}/batch-{batch}_gpukernsum.csv'
+
+        cuda_kerns = set()
+        with open(gpukernsum_file) as f:
+            next(f)
+            for line in f:
+                cuda_kerns.add(utils.parse_nsys_kernsum(line.strip()))
+
+
+        cols.append(len(cuda_kerns))
+
+
+    print(' & '.join(map(str, cols)), '\\\\')
+
+print('\\end{tabular}')
