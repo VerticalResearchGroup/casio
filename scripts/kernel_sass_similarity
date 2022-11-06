@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+import pandas as pd
+import sys
+import tempfile
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+sass_file = sys.argv[1]
+
+kernels = utils.parse_ncu_sass(sass_file)
+opcodes = utils.ncu_sass_opcodes(kernels)
+opcode_map = {op: i for i, op in enumerate(opcodes)}
+
+all_data = np.array([
+    k.to_feature_vector(opcode_map)
+    for k in kernels
+])
+
+
+packed_dists = pdist(all_data, 'cosine')
+dists = squareform(packed_dists)
+rep_list = utils.pick_clusters(dists)
+
+print("Total kernels: ", len(kernels))
+print("Representative kernels: ", len(rep_list))
+
+for idx in rep_list:
+    print()
+    print(f'Rep. Kernel: {kernels[idx].name}')
+
+# Idk what to do with this but we will leave it here for now...
+#
+#    l=[]
+#    for i,x in enumerate( df.iloc[a].tolist()):
+#       if (x >0.0):
+#          l.append(opcode_list[i] + ":" + str(round(x, 3)))
+#    print(' ', l)
+

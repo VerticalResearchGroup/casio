@@ -1,6 +1,7 @@
 import re
 import os
 from dataclasses import dataclass
+import numpy as np
 
 CASIO = os.environ.get('CASIO', '.')
 
@@ -185,13 +186,22 @@ def normalize_fw_opname(opname):
 class SassInst:
     pc : str
     opcode : str
+    inst_exec : int
     thread_inst_exec : int
+
 
 @dataclass
 class Kernel:
     name : str
     # ncalls : int
     trace : list[SassInst]
+
+    def to_feature_vector(self, opcode_map : dict[str, int]):
+        features = np.zeros(len(opcode_map))
+        for inst in self.trace:
+            features[opcode_map[inst.opcode]] += inst.inst_exec
+
+        return features
 
 def read_ncu_file(filename):
     with open(filename) as f:
@@ -229,7 +239,6 @@ def kernels_are_equal(k1, k2):
 
     return True
 
-
 def parse_ncu_sass(filename):
     with open(filename) as file:
         kernels = []
@@ -260,9 +269,18 @@ def parse_ncu_sass(filename):
             elif capture and not line.startswith('"Address","Source"'):
                 m = re.match(r'^\"(\w+)\",\"([^\"]+)\",\"(\d+)\",\"(\d+)\",\"(\d+)\",\"(\d+)\"', line)
                 assert m is not None, line
-                trace.append(SassInst(m.group(1), parse_sass_opcode(m.group(2)), int(m.group(6))))
+                trace.append(SassInst(m.group(1), parse_sass_opcode(m.group(2)), int(m.group(5)), int(m.group(6))))
 
     return kernels
+
+
+def ncu_sass_opcodes(kernels : list[Kernel]):
+    opcodes = set()
+    for k in kernels:
+        for inst in k.trace:
+            opcodes.add(inst.opcode)
+
+    return opcodes
 
 def ncu_sass_stats(kernels : list[Kernel]):
     k : Kernel
@@ -282,3 +300,19 @@ def ncu_sass_stats(kernels : list[Kernel]):
             total_dyn_inst += inst.thread_inst_exec
 
     return addr_map, opcode_map, total_dyn_inst
+
+
+def pick_clusters(dists, tol=0.05):
+    rep_list = set()
+    ignore_list = set()
+    for i in range(len(dists)):
+        if i in ignore_list: continue
+
+        for j in range(len(dists)):
+            if dists[i, j] > tol:
+                if (j in ignore_list): continue
+                else: rep_list.add(i)
+            else: ignore_list.add(j)
+
+    return rep_list
+

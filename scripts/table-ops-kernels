@@ -4,7 +4,9 @@ import os
 import sys
 import utils
 
-all_unique_ops = set()
+all_fw_ops = set()
+all_kerns = {plat: set() for plat in utils.plats}
+
 
 print('\\begin{tabular}{lrrr}')
 print(f'        &     & \\multicolumn{{3}}{{c}}{{\\textbf{{Cuda Kernels}}}}')
@@ -34,8 +36,8 @@ for app in utils.apps:
 
     unqiue_op_names = set([ op.name for op in trace ])
     prettyname = utils.app_pretty_names[app].replace('_', '\\_')
-
-    cols = [prettyname, len(unqiue_op_names)]
+    all_fw_ops = all_fw_ops.union(unqiue_op_names)
+    cols = [prettyname, f'{len(unqiue_op_names)}/{len(all_fw_ops)}']
 
     for plat in utils.plats:
         batch = utils.get_large_batch_size(plat, app)
@@ -47,8 +49,9 @@ for app in utils.apps:
             for line in f:
                 cuda_kerns.add(utils.parse_nsys_kernsum(line.strip()))
 
+        all_kerns[plat] = all_kerns[plat].union(cuda_kerns)
 
-        cols.append(len(cuda_kerns))
+        cols.append(f'{len(cuda_kerns)}/{len(all_kerns[plat])}')
 
 
     print(' & '.join(map(str, cols)), '\\\\')

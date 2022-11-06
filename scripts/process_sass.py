@@ -1,15 +1,15 @@
 import pandas as pd
 import sys
 import time
-import sass
+import utils
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
 filename = sys.argv[1]
 outprefix = sys.argv[2]
 
-kernels = sass.parse_ncu_sass(filename)
-addr_map, opcode_map, total_dyn_inst = sass.ncu_sass_stats(kernels)
+kernels = utils.parse_ncu_sass(filename)
+addr_map, opcode_map, total_dyn_inst = utils.ncu_sass_stats(kernels)
 
 for x in addr_map.keys():
     addr_map[x] = addr_map[x] / total_dyn_inst
