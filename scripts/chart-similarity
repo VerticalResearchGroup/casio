@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+apps = utils.apps[:4]
+
+def get_sass_heatmap(sass_file):
+    kernels = utils.parse_ncu_sass(sass_file)
+    opcodes = utils.ncu_sass_opcodes(kernels)
+    opcode_map = {op: i for i, op in enumerate(opcodes)}
+
+    all_data = np.array([
+        k.to_feature_vector(opcode_map)
+        for k in kernels
+    ])
+
+    packed_dists = pdist(all_data, 'cosine')
+    return squareform(packed_dists)
+
+fig = plt.figure(figsize=(3, 9))
+axs = fig.subplots(len(apps), 2)
+
+for i, app in enumerate(apps):
+    batch = utils.get_large_batch_size('a100', app)
+    sass_file = utils.get_ncu_sass_file('a100', app, batch)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+
+    print(f'Processing {app}...')
+    sass_heatmap = get_sass_heatmap(sass_file)
+    hw_heatmap = sass_heatmap #get_hw_heatmap(raw_file)
+
+    prettyname = utils.app_pretty_names[app]
+    axs[i, 0].set_ylabel(f'{prettyname}')
+
+    axs[i, 0].imshow(sass_heatmap, cmap='hot', interpolation='nearest')
+    axs[i, 0].set_xlim(0, sass_heatmap.shape[1])
+    axs[i, 0].set_ylim(0, sass_heatmap.shape[0])
+    axs[i, 0].set_xticks([])
+    axs[i, 0].set_yticks([])
+
+    axs[i, 1].imshow(hw_heatmap, cmap='hot', interpolation='nearest')
+    axs[i, 1].set_xlim(0, hw_heatmap.shape[1])
+    axs[i, 1].set_ylim(0, hw_heatmap.shape[0])
+    axs[i, 1].set_xticks([])
+    axs[i, 1].set_yticks([])
+
+    if i == len(apps) - 1:
+        axs[i, 0].set_xlabel('SASS')
+        axs[i, 1].set_xlabel('HW')
+
+
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/similarities.pdf')
+
+
+
