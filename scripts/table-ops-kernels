@@ -47,7 +47,8 @@ for app in utils.apps:
         with open(gpukernsum_file) as f:
             next(f)
             for line in f:
-                cuda_kerns.add(utils.parse_nsys_kernsum(line.strip()))
+                if not utils.is_blacklisted(line):
+                    cuda_kerns.add(utils.parse_nsys_kernsum(line.strip()))
 
         all_kerns[plat] = all_kerns[plat].union(cuda_kerns)
 

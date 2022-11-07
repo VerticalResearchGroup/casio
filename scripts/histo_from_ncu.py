@@ -10,7 +10,7 @@ headers=['cumm-fraction-time', 'metric', 'fraction-time'] + utils.launch_stats
 
 def get_histograms(ncu_raw_file):
     df = pd.read_csv(
-        utils.Reader(utils.read_ncu_file(ncu_raw_file)),
+        utils.Reader(utils.read_ncu_raw_file(ncu_raw_file)),
         low_memory=False,
         thousands=r',')
 

@@ -2,6 +2,7 @@ import re
 import os
 from dataclasses import dataclass
 import numpy as np
+import pandas as pd
 
 CASIO = os.environ.get('CASIO', '.')
 
@@ -203,17 +204,20 @@ class Kernel:
 
         return features
 
-def read_ncu_file(filename):
+def get_ncu_raw_file(plat : str, app : str, batch : int, samp : str = '10th'):
+    return f'{CASIO}/casio-results/{plat}/{app}/ncu-{samp}-{app}-train-b{batch}-raw.txt'
+
+def read_ncu_raw_file(filename):
     with open(filename) as f:
         line = next(f)
         while not line.startswith('"ID","Process ID","Process Name",'):
             line = next(f)
 
-        yield line
+        if not is_blacklisted(line): yield line
         next(f)
 
         for line in f:
-            yield line
+            if not is_blacklisted(line): yield line
 
 class Reader(object):
     def __init__(self, g):
@@ -223,6 +227,16 @@ class Reader(object):
             return next(self.g)
         except StopIteration:
             return ''
+
+def read_ncu_raw_file_numpy(filename, cols):
+    df = pd.read_csv(
+        Reader(read_ncu_raw_file(filename)),
+        low_memory=False,
+        thousands=r',')
+
+    names = list(df['Kernel Name'].values)
+    data = df.filter(cols, axis=1)
+    return names, data.to_numpy()
 
 def parse_sass_opcode(raw_opcode):
     opcode = raw_opcode[5:].split(' ')[0].strip()
@@ -239,9 +253,6 @@ def kernels_are_equal(k1, k2):
 
     return True
 
-def get_ncu_raw_file(plat : str, app : str, batch : int, samp : str = '10th'):
-    return f'{CASIO}/casio-results/{plat}/{app}/ncu-{samp}-{app}-train-b{batch}-raw.txt'
-
 def get_ncu_sass_file(plat : str, app : str, batch : int, samp : str = '10th'):
     return f'{CASIO}/casio-results/{plat}/{app}/ncu-{samp}-{app}-train-b{batch}-sass.txt'
 
@@ -256,7 +267,7 @@ def parse_ncu_sass(filename):
             if line.startswith('"Kernel Name"'):
                 if capture:
                     kern = Kernel(kname, trace)
-                    kernels.append(kern)
+                    if not is_blacklisted(kname): kernels.append(kern)
                     capture = False
 
                 m = re.match(r'"Kernel Name",\s*"(.+)"', line)
