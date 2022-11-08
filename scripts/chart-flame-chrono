@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+apps = utils.apps
+
+ORDER = 'sm_util'
+
+fig = plt.figure(figsize=(6 * 4 + 2, (len(apps) // 4) * 3))
+axs = fig.subplots(len(apps)//4, 4)
+
+for i, app in enumerate(apps):
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    r, c = i // 4, i % 4
+
+    prettyname = utils.app_pretty_names[app]
+    print(f'Processing {prettyname}...')
+
+    _, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'sm__instruction_throughput.avg.pct_of_peak_sustained_active',
+            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
+            'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
+        ])
+
+    if ORDER == 'sm_util':
+        # Sort data by sm utilization
+        data = data[data[:, 1].argsort()]
+
+    times = data[:, 0]
+    sm_util = data[:, 1]
+    dram_util = data[:, 2]
+    tensor_util = data[:, 3]
+
+    xs = np.cumsum(times) / times.sum()
+    # print(axs)
+    axs[r, c].set_title(f'{prettyname}')
+    o1 = axs[r, c].plot(xs, sm_util, label='SM Utilization', linewidth=1)
+    o2 = axs[r, c].plot(xs, dram_util, label='DRAM Utilization', linewidth=1)
+    o3 = axs[r, c].plot(xs, tensor_util, label='Tensor Utilization', linewidth=1)
+
+    # axs[r, c].set_ylim([0, 100])
+
+    if ORDER == 'sm_util': axs[r, c].set_xlabel('Fraction of Time')
+    else: axs[r, c].set_xlabel('Time')
+
+
+plt.tight_layout()
+
+plt.figlegend(
+    [o1[0], o2[0], o3[0]],
+    ['SM Utilization', 'DRAM Utilization', 'Tensor Utilization'],
+    loc='lower center',
+    ncol=3)
+
+os.makedirs('charts', exist_ok=True)
+plt.subplots_adjust(wspace=0.1, hspace=0.4, bottom=0.06)
+plt.savefig('charts/flame-chrono.pdf')
+
+
+
