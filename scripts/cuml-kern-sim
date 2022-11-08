@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+all_kernels_sw = []
+all_kernels_hw = None
+
+for app in utils.apps: #[:4]:
+    prettyname = utils.app_pretty_names[app]
+    batch = utils.get_large_batch_size('a100', app)
+    sass_file = utils.get_ncu_sass_file('a100', app, batch)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+
+    all_kernels_sw += utils.parse_ncu_sass(sass_file)
+    opcodes = utils.ncu_sass_opcodes(all_kernels_sw)
+    opcode_map = {op: i for i, op in enumerate(opcodes)}
+    sw_packed_dists = pdist(
+        np.array([k.to_feature_vector(opcode_map) for k in all_kernels_sw]),
+        'cosine')
+    sw_dists = squareform(sw_packed_dists)
+    sw_rep_list = utils.pick_clusters(sw_dists)
+
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
+    if all_kernels_hw is None: all_kernels_hw = data
+    else: all_kernels_hw = np.concatenate((all_kernels_hw, data))
+    hw_packed_dists = pdist(all_kernels_hw, 'cosine')
+    hw_dists = squareform(hw_packed_dists)
+    hw_rep_list = utils.pick_clusters(hw_dists)
+
+    print(f'App: {prettyname.ljust(15)}\tCum. Rep. (SW): {len(sw_rep_list)}\tCum. Rep. (HW): {len(hw_rep_list)}')

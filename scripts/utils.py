@@ -3,6 +3,7 @@ import os
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
+import glob
 
 CASIO = os.environ.get('CASIO', '.')
 
@@ -162,10 +163,30 @@ def get_large_batch_size(plat, query_app):
 
 
 def parse_nsys_kernsum(line):
+    # Time (%),Total Time (ns),Instances,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
     regex = r'([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),(.*)'
     m = re.match(regex, line)
     assert m is not None, f'Failed to parse line: "{line}"'
     return m.group(9)
+
+# Mike is in a hurry here. I'm sorry for the duplicate code
+def parse_nsys_kernsum2(line):
+    # Time (%),Total Time (ns),Instances,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
+    regex = r'([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),([^,]+),(.*)'
+    m = re.match(regex, line)
+    assert m is not None, f'Failed to parse line: "{line}"'
+    return float(m.group(2)), int(m.group(3)), m.group(9)
+
+def get_nsys_niter(plat, app, batch):
+    nsys_file = None
+    for filename in glob.glob(f'{CASIO}/casio-results/{plat}/{app}/nsys*b{batch}-*.nsys-rep'):
+        nsys_file = filename
+        break
+
+    assert nsys_file is not None, f'Failed to find nsys file for {plat}/{app} batch {batch}'
+
+    return int(nsys_file.replace('.nsys-rep', '').split('-')[-1][1:])
+
 
 def normalize_fw_opname(opname):
     if opname.endswith('_'): opname = opname[:-1]

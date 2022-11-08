@@ -8,46 +8,94 @@ from scipy.spatial.distance import squareform
 import numpy as np
 import utils
 
+
+def shorten_string(s, lim=50):
+    if len(s) > lim:
+        return s[:lim - 3] + '...'
+    return s
+
 apps = utils.apps
 
+# https://developer.nvidia.com/blog/nvidia-ampere-architecture-in-depth/
+peak_compute_a100 = np.array([
+    19.5e12, # FP32 peak for A100
+    78e12,   # FP16 peak for A100
+    312e12,  # FP16 TC peak for A100
+])
 
-for i, app in enumerate(apps):
-    batch = utils.get_large_batch_size('a100', app)
-    raw_file = utils.get_ncu_raw_file('a100', app, batch)
-    r, c = i // 4, i % 4
+peak_compute_v100 = np.array([
+    15.7e12, # FP32 peak for A100
+    31.4e12,   # FP16 peak for A100
+    125e12,  # FP16 TC peak for A100
+])
 
-    prettyname = utils.app_pretty_names[app]
-    print(f'Processing {prettyname}...')
+app_flops = {}
 
-    _, data = utils.read_ncu_raw_file_numpy(
-        raw_file,
-        [
-            'gpu__time_duration.sum',
-            'sm__instruction_throughput.avg.pct_of_peak_sustained_active',
-            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
-            'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
+for plat in ['v100', 'a100']:
+    print(f'=============== {plat.upper()} ===============')
+    print(f'Application\tGFLOP     \tTFLOP/S     \tHW-aware %    \tTensor %')
+    peak_compute = peak_compute_v100 if plat == 'v100' else peak_compute_a100
+    for i, app in enumerate(apps):
+        batch = utils.get_large_batch_size(plat, app)
+        raw_file = utils.get_ncu_raw_file(plat, app, batch)
+        prettyname = utils.app_pretty_names[app]
+
+        if not os.path.exists(raw_file):
+            print(f'{prettyname.ljust(10)}\tMISSING TFLOPS,\tHW-aware: MISSING%,\tTensor: MISSING%')
+            continue
+
+        knames, data = utils.read_ncu_raw_file_numpy(
+            raw_file,
+            [
+                'gpu__time_duration.sum',
+                'sm__pipe_fma_cycles_active.avg.pct_of_peak_sustained_elapsed',
+                'sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_elapsed',
+                'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
+            ])
+
+        tot_time = data[:, 0].sum() # In Nanoseconds
+        frac_time = data[:, 0] / tot_time
+        kern_tops = (data[:, 1:] / 100) * peak_compute
+        kern_hw_aware_tops = kern_tops.max(axis=1)
+        idxs = kern_tops.argmax(axis=1) + 1
+
+        kern_hw_aware_util = np.array([
+            data[i, idxs[i]] for i in range(len(idxs))
         ])
 
-    if ORDER == 'sm_util':
-        # Sort data by sm utilization
-        data = data[data[:, 1].argsort()]
+        kern_tensor_util = kern_hw_aware_tops / peak_compute[-1] * 100
+        hw_aware_flops = (kern_hw_aware_tops * frac_time).sum()
+        hw_aware_util = (kern_hw_aware_util * frac_time).sum()
+        tensor_util = (kern_tensor_util * frac_time).sum()
 
-    times = data[:, 0]
-    sm_util = data[:, 1]
-    dram_util = data[:, 2]
-    tensor_util = data[:, 3]
+        total_flops = hw_aware_flops * (tot_time / 1e9)
+        if plat == 'a100': app_flops[app] = total_flops
 
-    xs = np.cumsum(times) / times.sum()
-    # print(axs)
-    axs[r, c].set_title(f'{prettyname}')
-    o1 = axs[r, c].plot(xs, sm_util, label='SM Utilization', linewidth=1)
-    o2 = axs[r, c].plot(xs, dram_util, label='DRAM Utilization', linewidth=1)
-    o3 = axs[r, c].plot(xs, tensor_util, label='Tensor Utilization', linewidth=1)
+        print(f'{prettyname.ljust(10)}\t{total_flops/1e9:.2f}    \t{hw_aware_flops / 1e12:.2f}    \t{hw_aware_util:.2f}%     \t{tensor_util:.2f}%')
 
-    # axs[r, c].set_ylim([0, 100])
+    print()
 
-    if ORDER == 'sm_util': axs[r, c].set_xlabel('Fraction of Time')
-    else: axs[r, c].set_xlabel('Time')
+print(f'=============== p100 ===============')
+print(f'Application\tGFLOP     \tTFLOP/S     \tHW-aware %    \tTensor %')
 
+for i, app in enumerate(apps):
+    batch = utils.get_large_batch_size('p100', app)
+    prettyname = utils.app_pretty_names[app]
+    niter = utils.get_nsys_niter('p100', app, batch)
 
+    tot_time = 0
+    gpukernsum_file = f'{utils.CASIO}/casio-results/summaries/p100/{app}/batch-{batch}_gpukernsum.csv'
 
+    with open(gpukernsum_file) as f:
+        next(f)
+        for line in f:
+            if not utils.is_blacklisted(line):
+                ktime, kinst, kname = utils.parse_nsys_kernsum2(line.strip())
+                if not utils.is_blacklisted(kname):
+                    tot_time += ktime / 1e9 / niter
+
+    tot_app_flops = app_flops[app]
+    hw_aware_flops = tot_app_flops / tot_time
+    hw_aware_util = hw_aware_flops / 21.2e12 * 100
+
+    print(f'{prettyname.ljust(10)}\t{tot_app_flops/1e9:.2f}    \t{hw_aware_flops / 1e12:.2f}    \t{hw_aware_util:.2f}%     \tN/A%')
