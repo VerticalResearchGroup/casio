@@ -69,7 +69,7 @@ for plat in ['v100', 'a100']:
         tensor_util = (kern_tensor_util * frac_time).sum()
 
         total_flops = hw_aware_flops * (tot_time / 1e9)
-        if plat == 'a100': app_flops[app] = total_flops
+        if plat == 'v100': app_flops[app] = total_flops
 
         print(f'{prettyname.ljust(10)}\t{total_flops/1e9:.2f}    \t{hw_aware_flops / 1e12:.2f}    \t{hw_aware_util:.2f}%     \t{tensor_util:.2f}%')
 
@@ -93,6 +93,10 @@ for i, app in enumerate(apps):
                 ktime, kinst, kname = utils.parse_nsys_kernsum2(line.strip())
                 if not utils.is_blacklisted(kname):
                     tot_time += ktime / 1e9 / niter
+
+    if app not in app_flops:
+        print(f'{prettyname.ljust(10)}\tMISSING TFLOPS,\tHW-aware: MISSING%,\tTensor: MISSING%')
+        continue
 
     tot_app_flops = app_flops[app]
     hw_aware_flops = tot_app_flops / tot_time

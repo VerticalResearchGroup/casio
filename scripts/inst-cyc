@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import scipy
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+apps = utils.apps
+
+stats = [
+    'gpu__time_duration.sum',
+    'inst_executed'
+]
+
+fig = plt.figure(figsize=(6, len(apps) * 3))
+axs = fig.subplots(len(apps), 1)
+
+for i, app in enumerate(apps): #[:4]:
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    sass_file = utils.get_ncu_sass_file('a100', app, batch)
+
+    print(f'Processing {app}...')
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, stats)
+    kernels = utils.parse_ncu_sass(sass_file)
+
+    total_inst_raw = sum(data[:, 1])
+    total_insts_sass = sum(i.thread_inst_exec for k in kernels for i in k.trace)
+
+    lin_a, lin_b, lin_r, _, _    = scipy.stats.linregress(data[:, 1], data[:, 0])
+    quad_a, quad_b, quad_r, _, _ = scipy.stats.linregress(data[:, 1], np.sqrt(data[:, 0]))
+    exp_a, exp_b, exp_r, _, _    = scipy.stats.linregress(data[:, 1], np.log(data[:, 0]))
+
+
+    print(f'    Total insts: {total_insts_sass} (SASS), {total_inst_raw} (raw)')
+    print(f'    SASS/RAW: {total_insts_sass / total_inst_raw}')
+    print(f'    Lin. R^2: {lin_r**2:.2f}, Quad. R^2: {quad_r**2:.2f}, Exp. R^2: {exp_r**2:.2f}')
+    print()
+
+    axs[i].set_title(f'{app}')
+    axs[i].scatter(data[:, 1], data[:, 0], label=app, s=4)
+    # Plot regression lines
+    xs = np.linspace(0, max(data[:, 1]), 100)
+    axs[i].plot(xs, lin_a * xs + lin_b, label=f'Lin. R^2: {lin_r**2:.2f}')
+    # axs[i].plot(xs, (quad_a * xs + quad_b)**2, label=f'Quad. R^2: {quad_r**2:.2f}')
+    # axs[i].plot(xs, np.exp(exp_a * xs + exp_b), label=f'Exp. R^2: {exp_r**2:.2f}')
+
+    axs[i].set_xlabel('# Instructions')
+    axs[i].set_ylabel('Runtime')
+    axs[i].legend()
+    axs[i].loglog()
+
+
+
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/inst-cyc.pdf')
