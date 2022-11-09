@@ -99,7 +99,6 @@ launch_stats = [
     'launch__waves_per_multiprocessor'
 ]
 
-
 blacklist = {
     'redzone',
     'CUDA memset',
@@ -111,6 +110,31 @@ def is_blacklisted(kname):
         if b in kname:
             return True
     return False
+
+def get_bench_file(plat, app, batch):
+    pat = f'{CASIO}/casio-results/{plat}/{app}/bench-{app}-train-b{batch}-n*.txt'
+
+    ret_niter = 0
+    ret_filename = None
+
+    for filename in glob.glob(pat):
+        niter = int(filename.replace('.txt', '').split('-')[-1][1:])
+        if ret_filename is None or niter >  ret_niter:
+            ret_niter = niter
+            ret_filename = filename
+
+    if ret_filename is not None: return ret_filename
+
+    print(pat)
+    assert False, f'Could not find bench file for {app} {plat} {batch}'
+
+def throughput(plat, app, batch):
+    bench_file = get_bench_file(plat, app, batch)
+    with open(bench_file, 'r') as f:
+        for line in f:
+            if line.startswith('Throughput'): return float(line.split()[1])
+
+    assert False, f'Could not find throughput in {bench_file}'
 
 @dataclass
 class FrameworkOp:
@@ -150,6 +174,7 @@ fw_opname_map = {
     'native_batch_norm_backward': 'batch_norm-bwd',
     'native_layer_norm_backward': 'layer_norm-bwd',
 }
+
 def get_large_batch_size(plat, query_app):
     batch_sizes = {}
 
