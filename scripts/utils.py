@@ -105,11 +105,15 @@ blacklist = {
     'CUDA memcpy'
 }
 
+gemm_kernels = set(map(lambda s: s.strip(), open(f'{CASIO}/scripts/gemm-kernels.txt').readlines()))
+
 def is_blacklisted(kname):
     for b in blacklist:
         if b in kname:
             return True
     return False
+
+def is_gemm(kname): return kname in gemm_kernels
 
 def get_bench_file(plat, app, batch):
     pat = f'{CASIO}/casio-results/{plat}/{app}/bench-{app}-train-b{batch}-n*.txt'
