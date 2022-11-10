@@ -1,0 +1,135 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import numpy as np
+import matplotlib.pyplot as plt
+
+def thread_bin(nthread):
+    if nthread < 4000: return 'L'
+    elif nthread > 32000: return 'H'
+    else: return 'M'
+
+def sm_bin(sm_pct):
+    if sm_pct < 10: return 'L'
+    elif sm_pct > 70: return 'H'
+    else: return 'M'
+
+def mem_bin(mem_pct):
+    if mem_pct < 10: return 'L'
+    elif mem_pct > 70: return 'H'
+    else: return 'M'
+
+gemm_names = {
+    'gemm',
+    'wgrad',
+    'nchw',
+    'nhwc',
+    'conv2d',
+    'dgrad2d',
+    'convolve'
+}
+
+def is_gemm_kernel(kname):
+    for x in gemm_names:
+        if x in kname:
+            return True
+    return False
+
+apps = utils.apps
+
+fig = plt.figure(figsize=(6, len(apps) * 3))
+axs = fig.subplots(len(apps), 1)
+
+def format_col(s):
+    return s.ljust(5)
+
+cols = [''.ljust(12), ''.ljust(5)]
+for thrb in ['L', 'M', 'H']:
+    if thrb == 'L':
+        cols.append(format_col('L**'))
+        continue
+    for smb in ['L', 'M', 'H']:
+        for memb in ['L', 'M', 'H']:
+            cols.append(format_col(thrb + smb + memb))
+
+print(','.join(cols))
+plat = sys.argv[1]
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
+
+    gemm_bins = {}
+    nongemm_bins = {}
+
+    prettyname = utils.app_pretty_names[app]
+    # print(f'Processing {prettyname}...')
+
+    if not os.path.exists(raw_file):
+        print(f' {raw_file} does not exist')
+        print(f' {raw_file} does not exist')
+        print()
+        continue
+
+    names, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'launch__thread_count',
+            'sm__throughput.avg.pct_of_peak_sustained_elapsed',
+            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
+        ])
+
+    ktimes = data[:, 0]
+
+    kthreads = data[:, 1]
+    ksm_pcts = data[:, 2]
+    kmem_pcts = data[:, 3]
+    kgemm = np.array([utils.is_gemm(k) for k in names])
+
+    gemm_time = (ktimes * kgemm).sum()
+    nongemm_time = (ktimes * (1 - kgemm)).sum()
+    total_time = ktimes.sum()
+
+    for k, t, thr, sm, mem, isgemm in zip(names, ktimes, kthreads, ksm_pcts, kmem_pcts, kgemm):
+        b = f'{thread_bin(thr)}{sm_bin(sm)}{mem_bin(mem)}'
+        # print(b)
+        if isgemm: gemm_bins[b] = gemm_bins.get(b, 0) + t
+        else: nongemm_bins[b] = nongemm_bins.get(b, 0) + t
+
+    cols_gemm = [prettyname.ljust(12),    'GEMM']
+    cols_nongemm = [prettyname.ljust(12), 'Non-']
+    for thrb in ['L', 'M', 'H']:
+        if thrb == 'L':
+            gemm_time_ = 0
+            nongemm_time_ = 0
+            for smb in ['L', 'M', 'H']:
+                for memb in ['L', 'M', 'H']:
+                    b = thrb + smb + memb
+                    gemm_time_ += gemm_bins.get(b, 0)
+                    nongemm_time_ += nongemm_bins.get(b, 0)
+
+            cols_gemm.append(format_col(f'{gemm_time_ / gemm_time:.2f}'))
+            cols_nongemm.append(format_col(f'{nongemm_time_ / nongemm_time:.2f}'))
+            continue
+
+        for smb in ['L', 'M', 'H']:
+            for memb in ['L', 'M', 'H']:
+                b = f'{thrb}{smb}{memb}'
+                gemm = gemm_bins.get(b, 0)
+                nongemm = nongemm_bins.get(b, 0)
+                if gemm / total_time * 100 > 0.5:
+                    cols_gemm.append(f'{gemm / total_time * 100:.1f}')
+                else:
+                    cols_gemm.append('')
+
+                if nongemm / total_time * 100 > 0.5:
+                    cols_nongemm.append(f'{nongemm / total_time * 100:.1f}')
+                else:
+                    cols_nongemm.append('')
+
+    print(','.join([format_col(c) for c in cols_gemm]))
+    print(','.join([format_col(c) for c in cols_nongemm]))
+    # print()

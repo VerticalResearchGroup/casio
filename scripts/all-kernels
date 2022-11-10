@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+
+all_kerns = set()
+
+
+for app in utils.apps:
+    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
+
+    for plat in utils.plats:
+        batch = utils.get_large_batch_size(plat, app)
+        gpukernsum_file = f'{utils.CASIO}/casio-results/summaries/{plat}/{app}/batch-{batch}_gpukernsum.csv'
+
+        if not os.path.exists(gpukernsum_file): continue
+
+        cuda_kerns = set()
+        with open(gpukernsum_file) as f:
+            next(f)
+            for line in f:
+                if not utils.is_blacklisted(line):
+                    cuda_kerns.add(utils.parse_nsys_kernsum(line.strip()))
+
+        all_kerns = all_kerns.union(cuda_kerns)
+
+for k in all_kerns:
+    print(k)
+
+

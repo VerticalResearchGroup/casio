@@ -6,11 +6,17 @@ from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 
 import numpy as np
+import scipy
 import utils
+
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 apps = utils.apps
 
 WIDTH = 1.0
+
+v100_p100_speedup = 125 / 21.2
+a100_v100_speedup = 312 / 125
 
 stats = [
     'gpu__time_duration.sum',
@@ -37,20 +43,45 @@ for i, app in enumerate(apps):
 
     p100.append(1)
     v100.append(throughputs['v100'] / throughputs['p100'])
-    a100.append(throughputs['a100'] / throughputs['p100'])
+    a100.append(throughputs['a100'] / throughputs['v100'])
 
-xs = np.arange(len(apps)) * 4
-axs.bar(xs + 0, p100, width=WIDTH, label='P100')
-axs.bar(xs + 1, v100, width=WIDTH, label='V100')
-axs.bar(xs + 2, a100, width=WIDTH, label='A100')
 
-plt.xticks(xs + 1, labels, rotation=45, ha='right', fontsize=8)
-plt.xlim([-WIDTH / 2, max(xs) + 3 - 1.5 * WIDTH])
+p100 = np.array(p100)
+v100 = np.array(v100)
+a100 = np.array(a100)
+labels = np.array(labels)
+
+idxs = v100.argsort()
+p100 = p100[idxs]
+v100 = v100[idxs]
+a100 = a100[idxs]
+labels = labels[idxs]
+
+p100 = np.append(p100, scipy.stats.mstats.gmean(p100))
+v100 = np.append(v100, scipy.stats.mstats.gmean(v100))
+a100 = np.append(a100, scipy.stats.mstats.gmean(a100))
+labels = np.append(labels, 'Geo. Mean')
+
+xs = np.arange(len(apps) + 1) * 3
+
+#plot peak speedups
+axs.axhline(y=v100_p100_speedup, color=colors[0], linestyle='--', zorder=10)
+axs.axhline(y=a100_v100_speedup, color=colors[1], linestyle='--', zorder=10)
+
+# axs.bar(xs + 0, p100, width=WIDTH, label='P100')
+axs.bar(xs + 0, v100, width=WIDTH, label='V100 / P100', zorder=100)
+axs.bar(xs + 1, a100, width=WIDTH, label='A100 / V100', zorder=100)
+
+
+
+plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=8)
+plt.xlim([-WIDTH / 2, max(xs) + 2.5 - WIDTH])
+plt.ylim([0, 7.5])
 
 plt.xlabel('Application')
 plt.ylabel('Speedup over P100')
 plt.title('Generational Performance Gains')
-plt.legend()
+plt.legend(ncol=2)
 plt.tight_layout()
 os.makedirs('charts', exist_ok=True)
 plt.savefig('charts/e2e-speedup.pdf')

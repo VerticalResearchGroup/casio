@@ -33,7 +33,7 @@ app_flops = {}
 
 for plat in ['v100', 'a100']:
     print(f'=============== {plat.upper()} ===============')
-    print(f'Application\tGFLOP     \tTFLOP/S     \tHW-aware %    \tTensor %')
+    print(f'Application\t,GFLOP     \t,TFLOP/S     \t,HW-aware %    \t,Tensor %')
     peak_compute = peak_compute_v100 if plat == 'v100' else peak_compute_a100
     for i, app in enumerate(apps):
         batch = utils.get_large_batch_size(plat, app)
@@ -71,12 +71,12 @@ for plat in ['v100', 'a100']:
         total_flops = hw_aware_flops * (tot_time / 1e9)
         if plat == 'v100': app_flops[app] = total_flops
 
-        print(f'{prettyname.ljust(10)}\t{total_flops/1e9:.2f}    \t{hw_aware_flops / 1e12:.2f}    \t{hw_aware_util:.2f}%     \t{tensor_util:.2f}%')
+        print(f'{prettyname.ljust(10)}\t,{total_flops/1e9:.2f}    \t,{hw_aware_flops / 1e12:.2f}    \t,{hw_aware_util:.2f}%     \t{tensor_util:.2f}%')
 
     print()
 
 print(f'=============== p100 ===============')
-print(f'Application\tGFLOP     \tTFLOP/S     \tHW-aware %    \tTensor %')
+print(f'Application\t,GFLOP     \t,TFLOP/S     \t,HW-aware %    \t,Tensor %')
 
 for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('p100', app)
@@ -102,4 +102,4 @@ for i, app in enumerate(apps):
     hw_aware_flops = tot_app_flops / tot_time
     hw_aware_util = hw_aware_flops / 21.2e12 * 100
 
-    print(f'{prettyname.ljust(10)}\t{tot_app_flops/1e9:.2f}    \t{hw_aware_flops / 1e12:.2f}    \t{hw_aware_util:.2f}%     \tN/A%')
+    print(f'{prettyname.ljust(10)}\t,{tot_app_flops/1e9:.2f}    \t,{hw_aware_flops / 1e12:.2f}    \t,{hw_aware_util:.2f}%     \tN/A%')

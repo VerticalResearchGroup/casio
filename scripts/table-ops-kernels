@@ -8,8 +8,8 @@ all_fw_ops = set()
 all_kerns = {plat: set() for plat in utils.plats}
 
 
-print('\\begin{tabular}{lrrr}')
-print(f'        &     & \\multicolumn{{3}}{{c}}{{\\textbf{{Cuda Kernels}}}}')
+print('\\begin{tabular}{lrrrr}')
+print(f'        &     & \\multicolumn{{3}}{{c}}{{\\textbf{{Cuda Kernels}}}} \\\\')
 print('\\textbf{{Op Name}} & \\textbf{{Ops}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
 print('\\hline')
 for app in utils.apps:

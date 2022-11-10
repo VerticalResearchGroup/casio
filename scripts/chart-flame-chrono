@@ -27,7 +27,7 @@ for i, app in enumerate(apps):
         raw_file,
         [
             'gpu__time_duration.sum',
-            'sm__instruction_throughput.avg.pct_of_peak_sustained_active',
+            'sm__throughput.avg.pct_of_peak_sustained_elapsed',
             'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
             'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
         ])

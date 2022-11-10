@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+NBINS = 50
+
+apps = utils.apps
+
+stats = [
+    'gpu__time_duration.sum',
+    'launch__thread_count',
+    'sm__throughput.avg.pct_of_peak_sustained_elapsed',
+    'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed'
+]
+
+fig = plt.figure(figsize=(12, len(apps) * 3))
+axs = fig.subplots(len(apps) + 1, 3)
+
+all_thread_counts = None
+all_sm_util = None
+all_dram_util = None
+
+for i, app in enumerate(apps):
+    prettyname = utils.app_pretty_names[app]
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+
+    print(f'Processing {app}...')
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, stats)
+
+    axs[i, 0].set_title(f'{prettyname} - Thread Count')
+    axs[i, 0].hist(data[:, 1], bins=NBINS)
+    all_thread_counts = data[:, 1] if all_thread_counts is None else np.concatenate((all_thread_counts, data[:, 1]))
+
+    axs[i, 1].set_title(f'{prettyname} - SM Utilization')
+    axs[i, 1].hist(data[:, 2], bins=NBINS)
+    all_sm_util = data[:, 2] if all_sm_util is None else np.concatenate((all_sm_util, data[:, 2]))
+
+    axs[i, 2].set_title(f'{prettyname} - DRAM Utilization')
+    axs[i, 2].hist(data[:, 3], bins=NBINS)
+    all_dram_util = data[:, 3] if all_dram_util is None else np.concatenate((all_dram_util, data[:, 3]))
+
+axs[len(apps), 0].set_title(f'All - Thread Count')
+axs[len(apps), 0].hist(all_thread_counts, bins=NBINS)
+axs[len(apps), 0].set_yscale('log')
+
+axs[len(apps), 1].set_title(f'All - SM Utilization')
+axs[len(apps), 1].hist(all_sm_util, bins=NBINS)
+axs[len(apps), 1].set_yscale('log')
+
+axs[len(apps), 2].set_title(f'All - DRAM Utilization')
+axs[len(apps), 2].hist(all_dram_util, bins=NBINS)
+axs[len(apps), 2].set_yscale('log')
+
+
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/coarse-histos.pdf')
