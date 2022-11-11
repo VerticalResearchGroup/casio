@@ -21,16 +21,22 @@ def get_sass_heatmap(sass_file):
     ])
 
     packed_dists = pdist(all_data, 'cosine')
-    return 1 - squareform(packed_dists)
+    return squareform(packed_dists)
 
 
 def get_hw_heatmap(raw_file):
     _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
     packed_dists = pdist(data, 'cosine')
-    return 1 - squareform(packed_dists)
+    return squareform(packed_dists)
 
-fig = plt.figure(figsize=(6.5, 4))
-axs = fig.subplots(4, len(apps) // 2)
+fig = plt.figure(figsize=(utils.TEXT_WIDTH, 4))
+gs = fig.add_gridspec(5, len(apps) // 2, height_ratios=[1, 1, 0.2, 1, 1])
+axs = np.array([
+    [fig.add_subplot(gs[0, i]) for i in range(len(apps) // 2)],
+    [fig.add_subplot(gs[1, i]) for i in range(len(apps) // 2)],
+    [fig.add_subplot(gs[3, i]) for i in range(len(apps) // 2)],
+    [fig.add_subplot(gs[4, i]) for i in range(len(apps) // 2)],
+])
 
 for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('a100', app)
@@ -43,7 +49,7 @@ for i, app in enumerate(apps):
     hw_heatmap = get_hw_heatmap(raw_file)
 
     prettyname = utils.app_pretty_names[app]
-    axs[r, c].set_title(f'{prettyname}')
+    axs[r, c].set_title(f'{prettyname}', fontsize=10)
 
     axs[r + 0, c].imshow(sass_heatmap, cmap='hot', interpolation='nearest')
     axs[r + 0, c].set_xlim(0, sass_heatmap.shape[1])
@@ -58,8 +64,8 @@ for i, app in enumerate(apps):
     axs[r + 1, c].set_yticks([])
 
     if c == 0:
-        axs[r + 0, c].set_ylabel('SASS')
-        axs[r + 1, c].set_ylabel('HW')
+        axs[r + 0, c].set_ylabel('SASS', fontsize=10)
+        axs[r + 1, c].set_ylabel('HW', fontsize=10)
 
 
 plt.tight_layout()

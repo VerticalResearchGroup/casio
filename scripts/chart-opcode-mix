@@ -51,8 +51,8 @@ ordered_opcodes.sort(key=lambda x: opcode_counts.get(x, 0), reverse=True)
 print(f'Found {len(all_opcodes)} unique opcodes')
 
 
-plt.figure(figsize=(6.5, 3))
-plt.title('Opcode Mix')
+plt.figure(figsize=(utils.TEXT_WIDTH, 3))
+plt.title('SASS Opcode Mix', fontsize=10)
 
 xs = np.arange(len(all_opcodes)+1)[:keep + 1]
 

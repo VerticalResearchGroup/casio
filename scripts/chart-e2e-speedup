@@ -23,7 +23,7 @@ stats = [
     'inst_executed'
 ]
 
-fig = plt.figure(figsize=(6, 3))
+fig = plt.figure(figsize=(utils.COL_WIDTH, 2))
 axs = fig.subplots(1, 1)
 
 labels = []
@@ -74,14 +74,15 @@ axs.bar(xs + 1, a100, width=WIDTH, label='A100 / V100', zorder=100)
 
 
 
-plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=8)
+plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=6)
 plt.xlim([-WIDTH / 2, max(xs) + 2.5 - WIDTH])
 plt.ylim([0, 7.5])
+plt.yticks(fontsize=6)
 
-plt.xlabel('Application')
-plt.ylabel('Speedup over P100')
-plt.title('Generational Performance Gains')
-plt.legend(ncol=2)
+# plt.xlabel('Application', fontsize=8)
+plt.ylabel('Speedup', fontsize=8)
+plt.title('Generational Performance Gains', fontsize=10)
+plt.legend(ncol=2, fontsize=6)
 plt.tight_layout()
 os.makedirs('charts', exist_ok=True)
 plt.savefig('charts/e2e-speedup.pdf')
