@@ -1,11 +1,15 @@
 import re
 import os
+import gzip
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import glob
 
 CASIO = os.environ.get('CASIO', '.')
+
+COL_WIDTH = (8.5 - 1.5 - 0.25) / 2
+TEXT_WIDTH = 8.5 - 1.5
 
 apps = [
     'meshgraphnets-cfd',
@@ -107,6 +111,12 @@ blacklist = {
 
 gemm_kernels = set(map(lambda s: s.strip(), open(f'{CASIO}/scripts/gemm-kernels.txt').readlines()))
 
+
+def shorten_string(s, lim=40):
+    if len(s) > lim:
+        return s[:lim - 3] + '...'
+    return s
+
 def is_blacklisted(kname):
     for b in blacklist:
         if b in kname:
@@ -189,6 +199,49 @@ def get_large_batch_size(plat, query_app):
             batch_sizes[app] =  batch
 
     return batch_sizes[query_app]
+
+# Start (ns),Duration (ns),CorrId,GrdX,GrdY,GrdZ,BlkX,BlkY,BlkZ,Reg/Trd,StcSMem (MB),DymSMem (MB),Bytes (MB),Throughput (MBps),SrcMemK       d,DstMemKd,Device,Ctx,Strm,Name
+
+@dataclass
+class NsysKernel:
+    name : str
+    time_ns : float
+    num_threads : int
+
+    @property
+    def is_gemm(self): return is_gemm(self.name)
+
+    def __repr__(self):
+        return f'Kernel(name={shorten_string(self.name)}, {self.num_threads} threads, {self.time_ns}ns )'
+
+nsys_trace_regex = r'(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*),(\d*\.?\d*),(\d*\.?\d*),[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,[^,]*,\"?([^"]+)\"?'
+
+def get_nsys_gputrace_file(plat : str, app : str, batch : int):
+    return f'{CASIO}/casio-results/summaries/{plat}/{app}/batch-{batch}_gputrace.csv.gz'
+
+def parse_nsys_line(line):
+    m = re.match(nsys_trace_regex, line.strip())
+    if m is None:
+        assert False, f'Failed to parse line: {line}'
+
+    for i in [4, 5, 6, 7, 8, 9]:
+        if m.group(i) == '': return None
+
+    num_threads = np.prod([int(m.group(i)) for i in [4, 5, 6, 7, 8, 9]])
+    kname = m.group(13)
+    return NsysKernel(kname.strip(), float(m.group(2)), num_threads)
+
+def read_nsys_trace(nsys_trace_file):
+    with gzip.open(nsys_trace_file,'rt') as f:
+        next(f)
+        return list(
+            filter(
+                lambda x: x is not None,
+                map(
+                    parse_nsys_line,
+                    filter(
+                        lambda line: not is_blacklisted(line),
+                        f))))
 
 
 def parse_nsys_kernsum(line):

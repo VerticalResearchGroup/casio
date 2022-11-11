@@ -41,12 +41,24 @@ for i, app in enumerate(apps):
     dram_util = data[:, 2]
     tensor_util = data[:, 3]
 
+    avg_sm_util = []
+    avg_dram_util = []
+    avg_tensor_util = []
+
+    for i in range(len(times)):
+        part_times = times[:i+1]
+        frac_times = part_times / part_times.sum()
+
+        avg_sm_util.append(np.average(sm_util[:i+1], weights=frac_times))
+        avg_dram_util.append(np.average(dram_util[:i+1], weights=frac_times))
+        avg_tensor_util.append(np.average(tensor_util[:i+1], weights=frac_times))
+
     xs = np.cumsum(times) / times.sum()
     # print(axs)
     axs[r, c].set_title(f'{prettyname}')
-    o1 = axs[r, c].plot(xs, sm_util, label='SM Utilization', linewidth=1)
-    o2 = axs[r, c].plot(xs, dram_util, label='DRAM Utilization', linewidth=1)
-    o3 = axs[r, c].plot(xs, tensor_util, label='Tensor Utilization', linewidth=1)
+    o1 = axs[r, c].plot(xs, avg_sm_util, label='Avg. SM Utilization', linewidth=1)
+    o2 = axs[r, c].plot(xs, avg_dram_util, label='Avg. DRAM Utilization', linewidth=1)
+    o3 = axs[r, c].plot(xs, avg_tensor_util, label='Avg. Tensor Utilization', linewidth=1)
 
     # axs[r, c].set_ylim([0, 100])
 

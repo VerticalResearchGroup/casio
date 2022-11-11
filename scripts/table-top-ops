@@ -74,7 +74,7 @@ for app in utils.apps:
 
         contrib[plat].sort(key=lambda x: x[1], reverse=True)
 
-        for opname, frac in contrib[plat][:3]:
+        for opname, frac in contrib[plat][:5]:
             top_ops.add(opname)
 
     combined_top5 = [
