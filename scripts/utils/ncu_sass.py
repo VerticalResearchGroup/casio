@@ -60,7 +60,7 @@ def parse_ncu_sass(filename):
                 kname = m.group(1)
 
                 ignore = False
-                for b in blacklist:
+                for b in kern_blacklist:
                     if b in kname:
                         ignore = True
 

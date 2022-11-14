@@ -29,27 +29,34 @@ def get_hw_heatmap(raw_file):
     packed_dists = pdist(data, 'cosine')
     return squareform(packed_dists)
 
-fig = plt.figure(figsize=(utils.TEXT_WIDTH, 4))
-gs = fig.add_gridspec(5, len(apps) // 2, height_ratios=[1, 1, 0.2, 1, 1])
+fig = plt.figure(figsize=(utils.TEXT_WIDTH, 1.5))
+# gs = fig.add_gridspec(5, len(apps) // 2, height_ratios=[1, 1, 0.2, 1, 1])
+# axs = np.array([
+#     [fig.add_subplot(gs[0, i]) for i in range(len(apps) // 2)],
+#     [fig.add_subplot(gs[1, i]) for i in range(len(apps) // 2)],
+#     [fig.add_subplot(gs[3, i]) for i in range(len(apps) // 2)],
+#     [fig.add_subplot(gs[4, i]) for i in range(len(apps) // 2)],
+# ])
+
+gs = fig.add_gridspec(2, len(apps))
 axs = np.array([
-    [fig.add_subplot(gs[0, i]) for i in range(len(apps) // 2)],
-    [fig.add_subplot(gs[1, i]) for i in range(len(apps) // 2)],
-    [fig.add_subplot(gs[3, i]) for i in range(len(apps) // 2)],
-    [fig.add_subplot(gs[4, i]) for i in range(len(apps) // 2)],
+    [fig.add_subplot(gs[0, i]) for i in range(len(apps))],
+    [fig.add_subplot(gs[1, i]) for i in range(len(apps))],
 ])
 
 for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('a100', app)
     sass_file = utils.get_ncu_sass_file('a100', app, batch)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
-    r, c = int((i % 2) * 2), int(i / 2)
+    # r, c = int((i % 2) * 2), int(i / 2)
+    r, c = 0, i
 
     print(f'Processing {app}...')
     sass_heatmap = get_sass_heatmap(sass_file)
     hw_heatmap = get_hw_heatmap(raw_file)
 
     prettyname = utils.app_pretty_names[app]
-    axs[r, c].set_title(f'{prettyname}', fontsize=10)
+    axs[r, c].set_title(f'{prettyname}', fontsize=6)
 
     axs[r + 0, c].imshow(sass_heatmap, cmap='hot', interpolation='nearest')
     axs[r + 0, c].set_xlim(0, sass_heatmap.shape[1])
@@ -64,14 +71,14 @@ for i, app in enumerate(apps):
     axs[r + 1, c].set_yticks([])
 
     if c == 0:
-        axs[r + 0, c].set_ylabel('SASS', fontsize=10)
-        axs[r + 1, c].set_ylabel('HW', fontsize=10)
+        axs[r + 0, c].set_ylabel('SASS', fontsize=8)
+        axs[r + 1, c].set_ylabel('HW', fontsize=8)
 
 
 plt.tight_layout()
 
 os.makedirs('charts', exist_ok=True)
-plt.subplots_adjust(wspace=0.1, hspace=0.1)
+plt.subplots_adjust(wspace=0.2, hspace=0.0)
 plt.savefig('charts/similarities.pdf')
 
 

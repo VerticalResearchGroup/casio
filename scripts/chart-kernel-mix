@@ -15,25 +15,31 @@ def shorten_string(s, lim=40):
 
 
 kernel_frac = {}
+kernel_frac_byapp = {}
 keep = 49
 
 
 for app in utils.apps:
     batch = utils.get_large_batch_size('a100', app)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    kernel_frac_byapp[app] = {}
 
     print(f'Processing {app}...')
 
     names, data = utils.read_ncu_raw_file_numpy(
-        raw_file,
-        ['gpu__time_duration.sum'])
+        raw_file, ['gpu__time_duration.sum'])
 
     tot_time = data[:, 0].sum()
 
     for i, name in enumerate(names):
         if utils.is_gemm(name): name = 'gemm'
+
         if name not in kernel_frac: kernel_frac[name] = 0
         kernel_frac[name] += data[i, 0] / tot_time
+
+        if name not in kernel_frac_byapp[app]: kernel_frac_byapp[app][name] = 0
+        kernel_frac_byapp[app][name] += data[i, 0] / tot_time
+
 
 
 ordered_kerns = list(kernel_frac.keys())
@@ -41,18 +47,24 @@ ordered_kerns.sort(key=lambda x: kernel_frac.get(x, 0), reverse=True)
 keep_kerns = ordered_kerns[:keep]
 other_kerns = ordered_kerns[keep:]
 
-fracs = np.array(
-    [kernel_frac[k] / len(utils.apps) for k in keep_kerns] + \
-    [sum(kernel_frac[k] for k in other_kerns) / len(utils.apps)])
+data = [
+    [kernel_frac_byapp[app].get(k, 0) for app in utils.apps]
+    for k in keep_kerns
+] + [
+    [sum(kernel_frac_byapp[app].get(k, 0) for k in other_kerns) for app in utils.apps]
+]
+
+for name, row in zip(keep_kerns + ['other'], data):
+    print(shorten_string(name), row)
 
 
 plt.figure(figsize=(utils.TEXT_WIDTH, 6))
 plt.title('Kernel Mix', fontsize=10)
 
-xs = np.arange(len(fracs))
+xs = np.arange(len(keep_kerns) + 1)
 
-plt.bar(xs + 0.5, fracs)
-
+# plt.bar(xs + 0.5, fracs)
+plt.boxplot(data, labels=keep_kerns + ['other'])
 
 
 # plt.xlabel('Opcode')
@@ -61,7 +73,7 @@ plt.ylabel('Total Frac. of Normalized App Runtime', fontsize=8)
 
 
 plt.xticks(
-    xs,
+    xs + 1,
     list(map(shorten_string, keep_kerns)) + ['OTHER'],
     rotation=90,
     fontsize=6)
