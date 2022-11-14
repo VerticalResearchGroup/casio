@@ -10,46 +10,19 @@ print('\\begin{tabular}{lrrr}')
 print('\\textbf{{Op Name}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
 print('\\hline')
 for app in utils.apps:
-    # print()
-    # print(f'{app}:')
-
     traces = {}
-    no_data = False
     for plat in utils.plats:
-        filename = f'{utils.CASIO}/casio-results/postproc/{plat}/{app}/op-trace-large-batch.csv'
-
-        if not os.path.exists(filename):
-            # print(f'Missing data for {app}/{plat}')
-            no_data = True
-            break
-
-        trace = []
-        with open(filename) as f:
-            for line in f:
-                opname, accel_time_str = line.strip().split(',')
-                accel_time = float(accel_time_str)
-                trace.append(utils.FrameworkOp(
-                    utils.normalize_fw_opname(opname),
-                    accel_time
-                ))
-
-        traces[plat] = trace
-
-    if no_data: continue
+        optrace_file = utils.get_optrace_file_lb(plat, app)
+        if not os.path.exists(optrace_file): continue
+        traces[plat] = utils.read_optrace(optrace_file)
 
     for plat in utils.plats:
         total_time = sum(op.accel_time for op in traces[plat])
-        if total_time == 0: no_data = True
-
-    if no_data: continue
+        assert total_time > 0, f'Total time is 0 for {app}/{plat}'
 
 
-    unqiue_op_names = set([
-        op.name for op in traces['a100']
-    ])
-
+    unqiue_op_names = set([op.name for op in traces['a100']])
     all_unique_ops = all_unique_ops.union(unqiue_op_names)
-    # print(f'    # Unique Ops: {len(unqiue_op_names)}')
 
     prettyname = utils.app_pretty_names[app].replace('_', '\\_')
     print(f'\\multicolumn{{4}}{{c}}{{\\textbf{{{prettyname} ({len(unqiue_op_names)} / {len(all_unique_ops)} uniq.)}}}} \\\\')

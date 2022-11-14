@@ -13,25 +13,10 @@ print(f' & \\multicolumn{{3}}{{c}}{{\\textbf{{Framework}}}} & \\multicolumn{{3}}
 print(f'\\textbf{{Op Name}} &', ' & '.join(['Dyn.', 'Uniq.', 'C. Uniq.']*4), '\\\\')
 print('\\hline')
 for app in utils.apps:
-    # print()
-    # print(f'{app}:')
-
-    no_data = False
-    optrace_file = f'{utils.CASIO}/casio-results/postproc/a100/{app}/op-trace-large-batch.csv'
-
+    optrace_file = utils.get_optrace_file_lb('a100', app)
     if not os.path.exists(optrace_file): continue
+    trace = utils.read_optrace(optrace_file)
 
-    trace = []
-    with open(optrace_file) as f:
-        for line in f:
-            opname, accel_time_str = line.strip().split(',')
-            accel_time = float(accel_time_str)
-            trace.append(utils.FrameworkOp(
-                utils.normalize_fw_opname(opname),
-                accel_time
-            ))
-
-    if no_data: continue
     if sum(op.accel_time for op in trace) == 0: continue
 
     unqiue_op_names = set([ op.name for op in trace ])

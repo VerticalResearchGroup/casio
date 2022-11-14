@@ -8,6 +8,8 @@ from scipy.spatial.distance import squareform
 import numpy as np
 import utils
 
+def multicol(text, n): return f'\\multicolumn{{{n}}}{{c}}{{{text}}}'
+def bold(text): return f'\\textbf{{{text}}}'
 
 def shorten_string(s, lim=50):
     if len(s) > lim:
@@ -15,6 +17,7 @@ def shorten_string(s, lim=50):
     return s
 
 apps = utils.apps
+apps.remove('tabnet')
 
 # https://developer.nvidia.com/blog/nvidia-ampere-architecture-in-depth/
 peak_compute_a100 = np.array([
@@ -31,18 +34,39 @@ peak_compute_v100 = np.array([
 
 app_flops = {}
 
-for plat in ['v100', 'a100']:
-    print(f'=============== {plat.upper()} ===============')
-    print(f'Application\t,GFLOP     \t,TFLOP/S     \t,HW-aware %    \t,Tensor %')
+SEP = ' & '
+
+cols = {
+    'header-1': [
+        '',
+        multicol(bold('A100'), 2),
+        multicol(bold('V100'), 2),
+        multicol(bold('P100'), 1),
+    ],
+    'header-2': [
+        bold('Application'),
+        bold('FU \\%'),
+        bold('TC \\%'),
+        bold('FU \\%'),
+        bold('TC \\%'),
+        bold('FU \\%'),
+    ]
+}
+
+cols.update({
+    app: [utils.app_pretty_names[app]]
+    for app in apps
+})
+
+
+for plat in ['a100', 'v100']:
     peak_compute = peak_compute_v100 if plat == 'v100' else peak_compute_a100
     for i, app in enumerate(apps):
         batch = utils.get_large_batch_size(plat, app)
+        thput = utils.throughput(plat, app, batch)
         raw_file = utils.get_ncu_raw_file(plat, app, batch)
-        prettyname = utils.app_pretty_names[app]
 
-        if not os.path.exists(raw_file):
-            print(f'{prettyname.ljust(10)}\tMISSING TFLOPS,\tHW-aware: MISSING%,\tTensor: MISSING%')
-            continue
+        if not os.path.exists(raw_file): continue
 
         knames, data = utils.read_ncu_raw_file_numpy(
             raw_file,
@@ -68,15 +92,13 @@ for plat in ['v100', 'a100']:
         hw_aware_util = (kern_hw_aware_util * frac_time).sum()
         tensor_util = (kern_tensor_util * frac_time).sum()
 
-        total_flops = hw_aware_flops * (tot_time / 1e9)
-        if plat == 'v100': app_flops[app] = total_flops
+        total_flops = hw_aware_flops * (1 / thput)
+        if plat == 'a100': app_flops[app] = total_flops
 
-        print(f'{prettyname.ljust(10)}\t,{total_flops/1e9:.2f}    \t,{hw_aware_flops / 1e12:.2f}    \t,{hw_aware_util:.2f}%     \t{tensor_util:.2f}%')
-
-    print()
-
-print(f'=============== p100 ===============')
-print(f'Application\t,GFLOP     \t,TFLOP/S     \t,HW-aware %    \t,Tensor %')
+        cols[app] += [
+            f'{hw_aware_util:.2f}',
+            f'{tensor_util:.2f}',
+        ]
 
 for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('p100', app)
@@ -94,12 +116,26 @@ for i, app in enumerate(apps):
                 if not utils.is_blacklisted(kname):
                     tot_time += ktime / 1e9 / niter
 
-    if app not in app_flops:
-        print(f'{prettyname.ljust(10)}\tMISSING TFLOPS,\tHW-aware: MISSING%,\tTensor: MISSING%')
-        continue
+    if app not in app_flops: continue
 
     tot_app_flops = app_flops[app]
     hw_aware_flops = tot_app_flops / tot_time
     hw_aware_util = hw_aware_flops / 21.2e12 * 100
 
-    print(f'{prettyname.ljust(10)}\t,{tot_app_flops/1e9:.2f}    \t,{hw_aware_flops / 1e12:.2f}    \t,{hw_aware_util:.2f}%     \tN/A%')
+    cols[app] += [
+        f'{hw_aware_util:.2f}'
+    ]
+
+
+
+
+print('\\begin{tabular}{lrrrrr}')
+print('\\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-2'])), '\\\\ \\hline')
+
+for app in apps:
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app])), '\\\\')
+
+print('\\hline')
+print('\\end{tabular}')

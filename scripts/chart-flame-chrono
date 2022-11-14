@@ -12,7 +12,7 @@ apps = utils.apps
 
 ORDER = 'sm_util'
 
-fig = plt.figure(figsize=(6 * 4 + 2, (len(apps) // 4) * 3))
+fig = plt.figure(figsize=(utils.TEXT_WIDTH, 3))
 axs = fig.subplots(len(apps)//4, 4)
 
 for i, app in enumerate(apps):
@@ -56,14 +56,14 @@ for i, app in enumerate(apps):
     xs = np.cumsum(times) / times.sum()
     # print(axs)
     axs[r, c].set_title(f'{prettyname}')
-    o1 = axs[r, c].plot(xs, avg_sm_util, label='Avg. SM Utilization', linewidth=1)
-    o2 = axs[r, c].plot(xs, avg_dram_util, label='Avg. DRAM Utilization', linewidth=1)
-    o3 = axs[r, c].plot(xs, avg_tensor_util, label='Avg. Tensor Utilization', linewidth=1)
+    o1 = axs[r, c].plot(xs, sm_util, label='SM Utilization', linewidth=1)
+    o2 = axs[r, c].plot(xs, avg_dram_util, label='Avg. DRAM Utilization', linewidth=1, linestyle='--')
+    o3 = axs[r, c].plot(xs, avg_tensor_util, label='Avg. Tensor Utilization', linewidth=1, linestyle='--')
 
     # axs[r, c].set_ylim([0, 100])
 
-    if ORDER == 'sm_util': axs[r, c].set_xlabel('Fraction of Time')
-    else: axs[r, c].set_xlabel('Time')
+    if ORDER == 'sm_util': axs[r, c].set_xlabel('Fraction of Time', fontsize=8)
+    else: axs[r, c].set_xlabel('Time', fontsize=8)
 
 
 plt.tight_layout()
@@ -72,10 +72,11 @@ plt.figlegend(
     [o1[0], o2[0], o3[0]],
     ['SM Utilization', 'DRAM Utilization', 'Tensor Utilization'],
     loc='lower center',
-    ncol=3)
+    ncol=3,
+    fontsize=8)
 
 os.makedirs('charts', exist_ok=True)
-plt.subplots_adjust(wspace=0.1, hspace=0.4, bottom=0.06)
+plt.subplots_adjust(wspace=0.1, hspace=0.4, bottom=0.1)
 plt.savefig('charts/flame-chrono.pdf')
 
 

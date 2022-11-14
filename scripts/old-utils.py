@@ -109,7 +109,18 @@ blacklist = {
     'CUDA memcpy'
 }
 
+def strip_types(s : str):
+    return s \
+        .replace('long long', '') \
+        .replace('long', '') \
+        .replace('Eigen::half', '') \
+        .replace('__half', '')
+
 gemm_kernels = set(map(lambda s: s.strip(), open(f'{CASIO}/scripts/gemm-kernels.txt').readlines()))
+
+addl_gemm_kernels = set()
+for kname in gemm_kernels:
+    addl_gemm_kernels.add(strip_types(kname))
 
 
 def shorten_string(s, lim=40):
@@ -123,7 +134,10 @@ def is_blacklisted(kname):
             return True
     return False
 
-def is_gemm(kname): return kname in gemm_kernels
+def is_gemm(kname):
+    if kname in gemm_kernels: return True
+    if strip_types(kname) in addl_gemm_kernels: return True
+    return False
 
 def get_bench_file(plat, app, batch):
     pat = f'{CASIO}/casio-results/{plat}/{app}/bench-{app}-train-b{batch}-n*.txt'
