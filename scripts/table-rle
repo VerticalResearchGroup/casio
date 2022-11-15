@@ -13,6 +13,20 @@ plat = sys.argv[1]
 
 glb_run_lengths = []
 
+
+def multicol(text, n): return f'\\multicolumn{{{n}}}{{c}}{{{text}}}'
+def bold(text): return f'\\textbf{{{text}}}'
+
+SEP= ' & '
+
+cols = {
+    'header-1': [
+        '',
+        bold('Avg. Run Length')
+    ],
+}
+
+
 for i, app in enumerate(utils.apps):
     batch = utils.get_large_batch_size(plat, app)
     raw_file = utils.get_ncu_raw_file(plat, app, batch)
@@ -50,6 +64,15 @@ for i, app in enumerate(utils.apps):
     glb_run_lengths += run_lengths
 
     avg_run_length = np.mean(run_lengths)
-    print(f'{prettyname.ljust(15)}: {avg_run_length:.2f}')
+    # print(f'{prettyname.ljust(15)}: {avg_run_length:.2f}')
+    cols[app] = [prettyname, f'{avg_run_length:.2f}']
 
-print(f'Global average: {np.mean(glb_run_lengths):.2f}')
+print('\\begin{tabular}{lrr}')
+print('\\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
+
+for app in utils.apps:
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app])), '\\\\')
+
+print('\\hline')
+print('\\end{tabular}')

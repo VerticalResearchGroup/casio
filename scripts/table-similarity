@@ -1,0 +1,109 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+def multicol(text, n): return f'\\multicolumn{{{n}}}{{c}}{{{text}}}'
+def bold(text): return f'\\textbf{{{text}}}'
+
+SEP= ' & '
+
+cols = {
+    'header-1': [
+        '',
+        bold('SW'),
+        bold('HW'),
+    ],
+}
+
+apps = utils.apps #[:4]
+cache_file = f'{utils.CASIO}/cache/opcodes.txt'
+
+if os.path.exists(cache_file):
+    print(f'Loading opcode map from {cache_file}...')
+    all_opcodes = set()
+    with open(cache_file, 'r') as f:
+        for line in f:
+            all_opcodes.add(line.strip())
+else:
+    print(f'Generating opcode cache file {cache_file}')
+    all_opcodes = set()
+    for i, app in enumerate(apps):
+        batch = utils.get_large_batch_size('a100', app)
+        prettyname = utils.app_pretty_names[app]
+        print(f'Processing {app}...')
+        sass_file = utils.get_ncu_sass_file('a100', app, batch)
+        kernels = utils.parse_ncu_sass(sass_file)
+        opcodes = utils.ncu_sass_opcodes(kernels)
+        all_opcodes = all_opcodes.union(opcodes)
+
+    with open(cache_file, 'w') as f:
+        for opcode in all_opcodes:
+            print(opcode, file=f)
+
+opcode_map = {op: i for i, op in enumerate(all_opcodes)}
+
+def get_sass_data(sass_file, opcode_map):
+    kernels = utils.parse_ncu_sass(sass_file)
+    opcodes = utils.ncu_sass_opcodes(kernels)
+
+    all_data = np.array([
+        k.to_feature_vector(opcode_map)
+        for k in kernels
+    ])
+
+    return all_data
+
+
+def get_hw_data(raw_file):
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
+    return data
+
+def num_clusters(data):
+    packed_dists = pdist(data, 'cosine')
+    dists = squareform(packed_dists)
+    return len(utils.pick_clusters(dists))
+
+all_hw_data = None
+all_sass_data = None
+
+for i, app in enumerate(apps):
+    prettyname = utils.app_pretty_names[app]
+    batch = utils.get_large_batch_size('a100', app)
+    sass_file = utils.get_ncu_sass_file('a100', app, batch)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    # r, c = int((i % 2) * 2), int(i / 2)
+    r, c = 0, i
+
+    print(f'Processing {app}...')
+    sass_data = get_sass_data(sass_file, opcode_map)
+    hw_data = get_hw_data(raw_file)
+
+    if all_hw_data is None:
+        all_hw_data = hw_data
+        all_sass_data = sass_data
+    else:
+        all_hw_data = np.concatenate((all_hw_data, hw_data))
+        all_sass_data = np.concatenate((all_sass_data, sass_data))
+
+
+    cols[app] = [
+        prettyname,
+        f'{num_clusters(sass_data)} / {num_clusters(all_sass_data)}',
+        f'{num_clusters(hw_data)} / {num_clusters(all_hw_data)}',
+    ]
+
+print('\\begin{tabular}{lrr}')
+print('\\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
+
+for app in apps:
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app])), '\\\\')
+
+print('\\hline')
+print('\\end{tabular}')

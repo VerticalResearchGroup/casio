@@ -26,6 +26,27 @@ bin_str_to_idx = {
     'HHH': 18,
 }
 
+colors = [
+    '#2e8b57',
+    '#696969',
+    '#228b22',
+    '#7f0000',
+    '#800080',
+    '#ff4500',
+    '#ffa500',
+    '#00fa9a',
+    '#4169e1',
+    '#00ffff',
+    '#00bfff',
+    '#0000ff',
+    '#ff00ff',
+    '#fa8072',
+    '#ffff54',
+    '#dda0dd',
+    '#ff1493',
+    '#ffe4c4'
+]
+
 def thread_bin(nthread):
     if nthread < 4000: return 'L'
     elif nthread > 32000: return 'H'

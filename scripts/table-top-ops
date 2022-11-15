@@ -10,10 +10,11 @@ print('\\begin{tabular}{lrrr}')
 print('\\textbf{{Op Name}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
 print('\\hline')
 for app in utils.apps:
+    if app == 'nerf': continue
     traces = {}
     for plat in utils.plats:
         optrace_file = utils.get_optrace_file_lb(plat, app)
-        if not os.path.exists(optrace_file): continue
+        if not os.path.exists(optrace_file): assert False, f'{optrace_file} does not exist'
         traces[plat] = utils.read_optrace(optrace_file)
 
     for plat in utils.plats:
@@ -47,7 +48,7 @@ for app in utils.apps:
 
         contrib[plat].sort(key=lambda x: x[1], reverse=True)
 
-        for opname, frac in contrib[plat][:5]:
+        for opname, frac in contrib[plat][:3]:
             top_ops.add(opname)
 
     combined_top5 = [

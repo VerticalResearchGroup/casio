@@ -67,6 +67,9 @@ labels = np.append(labels, 'Geo. Mean')
 
 xs = np.arange(len(apps) + 1) * 3
 
+print(v100)
+print(a100)
+
 #plot peak speedups
 axs.axhline(y=v100_p100_speedup, color=colors[0], linestyle='--', linewidth=1, zorder=10)
 axs.axhline(y=a100_v100_speedup, color=colors[1], linestyle='--', linewidth=1, zorder=10)

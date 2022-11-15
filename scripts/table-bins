@@ -6,36 +6,16 @@ import utils
 import numpy as np
 import matplotlib.pyplot as plt
 
-def thread_bin(nthread):
-    if nthread < 4000: return 'L'
-    elif nthread > 32000: return 'H'
-    else: return 'M'
+import bins
 
-def sm_bin(sm_pct):
-    if sm_pct < 10: return 'L'
-    elif sm_pct > 70: return 'H'
-    else: return 'M'
+mask_cols = {'MLH', 'MHH', 'HHH', 'MMH'}
 
-def mem_bin(mem_pct):
-    if mem_pct < 10: return 'L'
-    elif mem_pct > 70: return 'H'
-    else: return 'M'
+def multicol(text, n): return f'\\multicolumn{{{n}}}{{c}}{{{text}}}'
+def bold(text): return f'\\textbf{{{text}}}'
 
-gemm_names = {
-    'gemm',
-    'wgrad',
-    'nchw',
-    'nhwc',
-    'conv2d',
-    'dgrad2d',
-    'convolve'
-}
+SEP= ' & '
 
-def is_gemm_kernel(kname):
-    for x in gemm_names:
-        if x in kname:
-            return True
-    return False
+cols = {}
 
 apps = utils.apps
 
@@ -45,16 +25,11 @@ axs = fig.subplots(len(apps), 1)
 def format_col(s):
     return s.ljust(5)
 
-cols = [''.ljust(12), ''.ljust(5)]
-for thrb in ['L', 'M', 'H']:
-    if thrb == 'L':
-        cols.append(format_col('L**'))
-        continue
-    for smb in ['L', 'M', 'H']:
-        for memb in ['L', 'M', 'H']:
-            cols.append(format_col(thrb + smb + memb))
+cols['header-1'] = [''] + [
+    bold(bstr) for bstr in bins.bin_str_to_idx.keys()
+    if bstr not in mask_cols
+]
 
-print(','.join(cols))
 plat = sys.argv[1]
 
 for i, app in enumerate(utils.apps):
@@ -94,42 +69,65 @@ for i, app in enumerate(utils.apps):
     total_time = ktimes.sum()
 
     for k, t, thr, sm, mem, isgemm in zip(names, ktimes, kthreads, ksm_pcts, kmem_pcts, kgemm):
-        b = f'{thread_bin(thr)}{sm_bin(sm)}{mem_bin(mem)}'
+        bstr = bins.get_bin_str(thr, sm, mem)
         # print(b)
-        if isgemm: gemm_bins[b] = gemm_bins.get(b, 0) + t
-        else: nongemm_bins[b] = nongemm_bins.get(b, 0) + t
+        if isgemm: gemm_bins[bstr] = gemm_bins.get(bstr, 0) + t
+        else: nongemm_bins[bstr] = nongemm_bins.get(bstr, 0) + t
 
-    cols_gemm = [prettyname.ljust(12),    'GEMM']
-    cols_nongemm = [prettyname.ljust(12), 'Non-']
-    for thrb in ['L', 'M', 'H']:
-        if thrb == 'L':
-            gemm_time_ = 0
-            nongemm_time_ = 0
-            for smb in ['L', 'M', 'H']:
-                for memb in ['L', 'M', 'H']:
-                    b = thrb + smb + memb
-                    gemm_time_ += gemm_bins.get(b, 0)
-                    nongemm_time_ += nongemm_bins.get(b, 0)
+    col_gemm = [prettyname]
+    col_nongemm = ['']
+    for bstr in bins.bin_str_to_idx.keys():
+        if bstr in mask_cols: continue
+        gemm_frac = gemm_bins.get(bstr, 0) / gemm_time
+        nongemm_frac = nongemm_bins.get(bstr, 0) / nongemm_time
 
-            cols_gemm.append(format_col(f'{gemm_time_ / gemm_time:.2f}'))
-            cols_nongemm.append(format_col(f'{nongemm_time_ / nongemm_time:.2f}'))
-            continue
+        gemm_frac_str = '-' if gemm_frac == 0 else f'{gemm_frac:.2f}'
+        nongemm_frac_str = '-' if nongemm_frac == 0 else f'{nongemm_frac:.2f}'
 
-        for smb in ['L', 'M', 'H']:
-            for memb in ['L', 'M', 'H']:
-                b = f'{thrb}{smb}{memb}'
-                gemm = gemm_bins.get(b, 0)
-                nongemm = nongemm_bins.get(b, 0)
-                if gemm / total_time * 100 > 0.5:
-                    cols_gemm.append(f'{gemm / total_time * 100:.1f}')
-                else:
-                    cols_gemm.append('')
+        col_gemm.append(gemm_frac_str)
+        col_nongemm.append(nongemm_frac_str)
 
-                if nongemm / total_time * 100 > 0.5:
-                    cols_nongemm.append(f'{nongemm / total_time * 100:.1f}')
-                else:
-                    cols_nongemm.append('')
+    cols[app + '-gemm'] = col_gemm
+    cols[app + '-nongemm'] = col_nongemm
 
-    print(','.join([format_col(c) for c in cols_gemm]))
-    print(','.join([format_col(c) for c in cols_nongemm]))
-    # print()
+    # for thrb in ['L', 'M', 'H']:
+    #     if thrb == 'L':
+    #         gemm_time_ = 0
+    #         nongemm_time_ = 0
+    #         for smb in ['L', 'M', 'H']:
+    #             for memb in ['L', 'M', 'H']:
+    #                 b = thrb + smb + memb
+    #                 gemm_time_ += gemm_bins.get(b, 0)
+    #                 nongemm_time_ += nongemm_bins.get(b, 0)
+
+    #         cols_gemm.append(format_col(f'{gemm_time_ / gemm_time:.2f}'))
+    #         cols_nongemm.append(format_col(f'{nongemm_time_ / nongemm_time:.2f}'))
+    #         continue
+
+    #     for smb in ['L', 'M', 'H']:
+    #         for memb in ['L', 'M', 'H']:
+    #             b = f'{thrb}{smb}{memb}'
+    #             gemm = gemm_bins.get(b, 0)
+    #             nongemm = nongemm_bins.get(b, 0)
+    #             if gemm / total_time * 100 > 0.5:
+    #                 cols_gemm.append(f'{gemm / total_time * 100:.1f}')
+    #             else:
+    #                 cols_gemm.append('')
+
+    #             if nongemm / total_time * 100 > 0.5:
+    #                 cols_nongemm.append(f'{nongemm / total_time * 100:.1f}')
+    #             else:
+    #                 cols_nongemm.append('')
+
+
+align_str = 'l' + 'c' * len(bins.bin_str_to_idx)
+print(f'\\begin{{tabular}}{{{align_str}}}')
+print('\\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
+
+for app in utils.apps:
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-gemm'])), '\\\\')
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-nongemm'])), '\\\\')
+
+print('\\hline')
+print('\\end{tabular}')

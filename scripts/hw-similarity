@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+apps = utils.apps #[:4]
+
+def get_hw_heatmap(raw_file):
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
+    packed_dists = pdist(data, 'cosine')
+    return squareform(packed_dists)
+
+
+all_data = None
+
+for i, app in enumerate(apps):
+    batch = utils.get_large_batch_size('a100', app)
+    prettyname = utils.app_pretty_names[app]
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+
+
+    # print(f'Processing {app}...')
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
+    packed_dists = pdist(data, 'cosine')
+    dists = squareform(packed_dists)
+
+    if all_data is None:
+        all_data = data
+    else:
+        all_data = np.vstack((all_data, data))
+
+    rep_list = utils.pick_clusters(dists)
+    print(f'{prettyname.ljust(12)}: clusters: {len(rep_list)}')
+
+
+packed_dists = pdist(all_data, 'cosine')
+dists = squareform(packed_dists)
+
+
+rep_list = utils.pick_clusters(dists)
+print(f'All clusters: {len(rep_list)}')
+
