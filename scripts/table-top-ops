@@ -6,6 +6,8 @@ import utils
 
 all_unique_ops = set()
 
+totals = {}
+
 print('\\begin{tabular}{lrrr}')
 print('\\textbf{{Op Name}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
 print('\\hline')
@@ -48,8 +50,16 @@ for app in utils.apps:
 
         contrib[plat].sort(key=lambda x: x[1], reverse=True)
 
-        for opname, frac in contrib[plat][:3]:
-            top_ops.add(opname)
+        for opname, frac in contrib[plat][:3]: top_ops.add(opname)
+
+        n80 = 0
+        tot_frac = 0
+        for opname, frac in contrib[plat]:
+            n80 += 1
+            tot_frac += frac
+            if tot_frac >= 0.8: break
+
+        totals[app + plat] = n80
 
     combined_top5 = [
         (
@@ -81,3 +91,10 @@ for app in utils.apps:
     print('\\hline')
 
 print('\\end{tabular}')
+
+for app in utils.apps:
+    prettyname = utils.app_pretty_names[app]
+    if app == 'nerf': continue
+    for plat in utils.plats:
+
+        print(f'{prettyname.ljust(15)} {plat}: {totals[app + plat]} kernels for 80%')

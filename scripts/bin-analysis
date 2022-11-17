@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import numpy as np
+import matplotlib.pyplot as plt
+
+import bins
+
+app = sys.argv[3]
+plat = sys.argv[1]
+bstr = sys.argv[2]
+
+MAX_GEMM = 20
+MAX_NONGEMM = 20
+
+if app == 'all':
+    apps = set(utils.apps)
+elif ',' in app:
+    apps = set(app.split(','))
+else:
+    apps = set([app])
+
+if ',' in bstr:
+    search_bins = set(bstr.split(','))
+else:
+    search_bins = set([bstr])
+
+print(f'Apps: {apps}')
+print(f'Plat: {plat}')
+print(f'Bins: {search_bins}')
+
+gemm_only = False
+# if len(sys.argv) > 4:
+#     gemm_only = sys.argv[4] == 'gemm'
+
+for app in apps:
+    if app not in utils.apps:
+        for long_name in utils.apps:
+            if app == utils.app_pretty_names[long_name]:
+                app = long_name
+                break
+
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
+    if not os.path.exists(raw_file):
+        continue
+    gemm_bins = {}
+    nongemm_bins = {}
+    prettyname = utils.app_pretty_names[app]
+    print('='*10, prettyname, '='*10)
+
+    names, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'launch__thread_count',
+            'sm__throughput.avg.pct_of_peak_sustained_elapsed',
+            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
+        ])
+
+    print(f'There are {len(names)} kernels')
+
+    ktimes = data[:, 0]
+
+    kthreads = data[:, 1]
+    ksm_pcts = data[:, 2]
+    kmem_pcts = data[:, 3]
+    kgemm = np.array([utils.is_gemm(k) for k in names])
+
+    gemm_time = (ktimes * kgemm).sum()
+    nongemm_time = (ktimes * (1 - kgemm)).sum()
+    total_time = ktimes.sum()
+
+    gemm_count = 0
+    nongemm_count = 0
+
+    for i, (kname, t, thr, sm, mem, isgemm) in enumerate(zip(names, ktimes, kthreads, ksm_pcts, kmem_pcts, kgemm)):
+        if gemm_only and not isgemm: continue
+        bstr = bins.get_bin_str(thr, sm, mem, collapse_l=False)
+        if bstr in search_bins:
+            short_name = utils.shorten_string(kname, 200)
+            gemm_str = 'GEMM' if isgemm else 'Non-GEMM'
+            gemm_count += 1 if isgemm else 0
+            nongemm_count += 1 if not isgemm else 0
+
+            if isgemm and gemm_count > MAX_GEMM: continue
+            if not isgemm and nongemm_count > MAX_NONGEMM: continue
+
+            print(f'{gemm_str.ljust(8)} {short_name}')
+            # print(f'    {gemm_str}')
+            print(f'    [{bstr}] threads={thr} sm={sm} mem={mem}')
+            print()
+
+    print(f'# GEMM: {gemm_count}')
+    print(f'# Non-GEMM: {nongemm_count}')

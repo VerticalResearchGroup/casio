@@ -35,15 +35,12 @@ plat = sys.argv[1]
 for i, app in enumerate(utils.apps):
     batch = utils.get_large_batch_size(plat, app)
     raw_file = utils.get_ncu_raw_file(plat, app, batch)
-
     gemm_bins = {}
     nongemm_bins = {}
-
     prettyname = utils.app_pretty_names[app]
     # print(f'Processing {prettyname}...')
 
     if not os.path.exists(raw_file):
-        print(f' {raw_file} does not exist')
         print(f' {raw_file} does not exist')
         print()
         continue
@@ -74,15 +71,20 @@ for i, app in enumerate(utils.apps):
         if isgemm: gemm_bins[bstr] = gemm_bins.get(bstr, 0) + t
         else: nongemm_bins[bstr] = nongemm_bins.get(bstr, 0) + t
 
-    col_gemm = [prettyname]
+    col_gemm = [
+        f'\\multirow{{2}}{{*}}{{{prettyname}}}'
+    ]
     col_nongemm = ['']
     for bstr in bins.bin_str_to_idx.keys():
         if bstr in mask_cols: continue
-        gemm_frac = gemm_bins.get(bstr, 0) / gemm_time
-        nongemm_frac = nongemm_bins.get(bstr, 0) / nongemm_time
+        gemm_frac = gemm_bins.get(bstr, 0) / total_time * 100
+        nongemm_frac = nongemm_bins.get(bstr, 0) / total_time * 100
 
-        gemm_frac_str = '-' if gemm_frac == 0 else f'{gemm_frac:.2f}'
-        nongemm_frac_str = '-' if nongemm_frac == 0 else f'{nongemm_frac:.2f}'
+        gemm_frac_str = '-' if gemm_frac == 0 else f'{gemm_frac:.0f}'
+        nongemm_frac_str = '-' if nongemm_frac == 0 else f'{nongemm_frac:.0f}'
+
+        if gemm_frac_str == '0': gemm_frac_str = '-'
+        if nongemm_frac_str == '0': nongemm_frac_str = '-'
 
         col_gemm.append(gemm_frac_str)
         col_nongemm.append(nongemm_frac_str)
@@ -90,44 +92,14 @@ for i, app in enumerate(utils.apps):
     cols[app + '-gemm'] = col_gemm
     cols[app + '-nongemm'] = col_nongemm
 
-    # for thrb in ['L', 'M', 'H']:
-    #     if thrb == 'L':
-    #         gemm_time_ = 0
-    #         nongemm_time_ = 0
-    #         for smb in ['L', 'M', 'H']:
-    #             for memb in ['L', 'M', 'H']:
-    #                 b = thrb + smb + memb
-    #                 gemm_time_ += gemm_bins.get(b, 0)
-    #                 nongemm_time_ += nongemm_bins.get(b, 0)
 
-    #         cols_gemm.append(format_col(f'{gemm_time_ / gemm_time:.2f}'))
-    #         cols_nongemm.append(format_col(f'{nongemm_time_ / nongemm_time:.2f}'))
-    #         continue
-
-    #     for smb in ['L', 'M', 'H']:
-    #         for memb in ['L', 'M', 'H']:
-    #             b = f'{thrb}{smb}{memb}'
-    #             gemm = gemm_bins.get(b, 0)
-    #             nongemm = nongemm_bins.get(b, 0)
-    #             if gemm / total_time * 100 > 0.5:
-    #                 cols_gemm.append(f'{gemm / total_time * 100:.1f}')
-    #             else:
-    #                 cols_gemm.append('')
-
-    #             if nongemm / total_time * 100 > 0.5:
-    #                 cols_nongemm.append(f'{nongemm / total_time * 100:.1f}')
-    #             else:
-    #                 cols_nongemm.append('')
-
-
-align_str = 'l' + 'c' * len(bins.bin_str_to_idx)
+align_str = 'l' + 'r' * len(bins.bin_str_to_idx)
 print(f'\\begin{{tabular}}{{{align_str}}}')
 print('\\hline')
 print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
 
 for app in utils.apps:
     print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-gemm'])), '\\\\')
-    print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-nongemm'])), '\\\\')
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-nongemm'])), '\\\\ \hline')
 
-print('\\hline')
 print('\\end{tabular}')

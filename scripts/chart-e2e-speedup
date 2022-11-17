@@ -48,6 +48,7 @@ for i, app in enumerate(apps):
     v100.append(throughputs['v100'] / throughputs['p100'])
     a100.append(throughputs['a100'] / throughputs['v100'])
 
+    print(f'{prettyname.ljust(15)}: {v100[-1]:.2f} {a100[-1]:.2f}')
 
 p100 = np.array(p100)
 v100 = np.array(v100)

@@ -5,6 +5,17 @@ class FrameworkOp:
     name : str
     accel_time : float
 
+fwop_blacklist = {
+    '_arg_Placeholder',
+
+}
+
+def is_blacklisted_fwop(opname):
+    for b in fwop_blacklist:
+        if b in opname:
+            return True
+    return False
+
 fw_opname_map = {
     # TensorFlow Ops
     'Mul': 'mul',
@@ -24,6 +35,8 @@ fw_opname_map = {
     'Sum': 'sum',
     'Transpose': 'transpose',
     'DynamicStitch': 'dynamic_stitch',
+    'GatherV2_1': 'GatherV2',
+    'GatherV2_2': 'GatherV2',
 
     # PyTorch Ops
     'mm': 'matmul',
@@ -40,13 +53,10 @@ fw_opname_map = {
 }
 
 def normalize_fw_opname(opname):
+    if '/' in opname: opname = opname.split('/')[-2]
     if opname.endswith('_'): opname = opname[:-1]
-
-    if opname.startswith('aten::'):
-        opname = opname[6:]
-
-    if opname in fw_opname_map:
-        return fw_opname_map[opname]
+    if opname.startswith('aten::'): opname = opname[6:]
+    if opname in fw_opname_map: return fw_opname_map[opname]
 
     if opname.endswith('Grad'):
         fwd_opname = opname[:-4]
@@ -64,9 +74,10 @@ def read_optrace(optrace_file):
         for line in f:
             opname, accel_time_str = line.strip().split(',')
             accel_time = float(accel_time_str)
-            trace.append(FrameworkOp(
-                normalize_fw_opname(opname),
-                accel_time
-            ))
+            if not is_blacklisted_fwop(opname):
+                trace.append(FrameworkOp(
+                    normalize_fw_opname(opname),
+                    accel_time
+                ))
 
     return trace

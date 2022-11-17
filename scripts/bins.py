@@ -4,6 +4,14 @@ import utils
 NUM_BINS = 19
 bin_str_to_idx = {
     'L**': 0,
+    'LLM': 19,
+    'LLH': 20,
+    'LML': 21,
+    'LMM': 22,
+    'LMH': 23,
+    'LHL': 24,
+    'LHM': 25,
+    'LHH': 26,
 
     'MLL': 1,
     'MLM': 2,
@@ -63,9 +71,9 @@ def mem_bin(mem_pct):
     else: return 'M'
 
 
-def get_bin_str(nthread, sm_pct, mem_pct):
+def get_bin_str(nthread, sm_pct, mem_pct, collapse_l=True):
     bin_str = thread_bin(nthread) + sm_bin(sm_pct) + mem_bin(mem_pct)
-    if bin_str[0] == 'L': return 'L**'
+    if collapse_l and bin_str[0] == 'L': return 'L**'
     return bin_str
 
 def get_bin_str_vec(x): return get_bin_str(x[0], x[1], x[2])

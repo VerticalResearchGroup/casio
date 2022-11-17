@@ -67,6 +67,7 @@ for i, app in enumerate(apps):
     # axs[r, c].set_yticklabels(fontsize=8)
 
     # axs[r, c].set_ylim([0, 100])
+    axs[r, c].semilogy()
 
 ax = fig.add_subplot(111, frameon=False)
 if ORDER == 'sm_util': ax.set_xlabel('Fraction of Time', fontsize=8, labelpad=15)
@@ -86,7 +87,7 @@ plt.figlegend(
 
 
 os.makedirs('charts', exist_ok=True)
-plt.subplots_adjust(wspace=0.2, hspace=0.5, bottom=0.20)
+plt.subplots_adjust(wspace=0.3, hspace=0.5, bottom=0.20)
 plt.savefig('charts/flame-chrono.pdf')
 
 
