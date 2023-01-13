@@ -1,0 +1,150 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import numpy as np
+import scipy
+import scipy.stats
+
+all_unique_ops = set()
+
+totals = {}
+
+gemm_ops = {
+    'matmul', 'conv', 'conv-bwd'
+}
+
+gemm_amdahl_p100 = []
+gemm_amdahl_v100 = []
+gemm_amdahl_a100 = []
+
+top_amdahl_p100 = []
+top_amdahl_v100 = []
+top_amdahl_a100 = []
+
+print('\\begin{tabular}{lrrr}')
+print('\\textbf{{Op Name}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
+print('\\hline')
+for app in utils.apps:
+    if app == 'nerf': continue
+    traces = {}
+    for plat in utils.plats:
+        optrace_file = utils.get_optrace_file_lb(plat, app)
+        if not os.path.exists(optrace_file): assert False, f'{optrace_file} does not exist'
+        traces[plat] = utils.read_optrace(optrace_file)
+
+    for plat in utils.plats:
+        total_time = sum(op.accel_time for op in traces[plat])
+        assert total_time > 0, f'Total time is 0 for {app}/{plat}'
+
+
+    unqiue_op_names = set([op.name for op in traces['a100']])
+    all_unique_ops = all_unique_ops.union(unqiue_op_names)
+
+    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
+    print(f'\\multicolumn{{4}}{{c}}{{\\textbf{{{prettyname} ({len(unqiue_op_names)} / {len(all_unique_ops)} uniq.)}}}} \\\\')
+    print('\\hline')
+
+    def runtime_contrib(opname, plat):
+        total_time = sum(op.accel_time for op in traces[plat])
+        return sum(op.accel_time for op in traces[plat] if op.name == opname) / total_time
+
+    contrib = {}
+    top_ops = set()
+
+    for plat in utils.plats:
+        total_time = sum(op.accel_time for op in traces[plat])
+
+        if total_time == 0: continue
+
+        contrib[plat] = [
+            (opname, runtime_contrib(opname, plat))
+            for opname in unqiue_op_names
+        ]
+
+        contrib[plat].sort(key=lambda x: x[1], reverse=True)
+
+        for opname, frac in contrib[plat][:3]: top_ops.add(opname)
+
+        n80 = 0
+        tot_frac = 0
+        for opname, frac in contrib[plat]:
+            n80 += 1
+            tot_frac += frac
+            if tot_frac >= 0.8: break
+
+        totals[app + plat] = n80
+
+    combined_top5 = [
+        (
+            opname,
+            runtime_contrib(opname, 'p100'),
+            runtime_contrib(opname, 'v100'),
+            runtime_contrib(opname, 'a100'),
+        )
+        for opname in top_ops
+    ]
+
+    gemm_contrib_p100 = sum(runtime_contrib(x, 'p100') for x in top_ops if x in gemm_ops)
+    gemm_contrib_v100 = sum(runtime_contrib(x, 'v100') for x in top_ops if x in gemm_ops)
+    gemm_contrib_a100 = sum(runtime_contrib(x, 'a100') for x in top_ops if x in gemm_ops)
+
+    if gemm_contrib_p100 > 0: gemm_amdahl_p100.append(1 / (1 - gemm_contrib_p100* 9 / 10))
+    if gemm_contrib_v100 > 0: gemm_amdahl_v100.append(1 / (1 - gemm_contrib_v100* 9 / 10))
+    if gemm_contrib_a100 > 0: gemm_amdahl_a100.append(1 / (1 - gemm_contrib_a100/2))
+
+    top5_p100_frac = sum(frac for opname, frac, _, _ in combined_top5)
+    top5_v100_frac = sum(frac for opname, _, frac, _ in combined_top5)
+    top5_a100_frac = sum(frac for opname, _, _, frac in combined_top5)
+
+    top_amdahl_p100.append(1 / (1 - top5_p100_frac * 9 / 10))
+    top_amdahl_v100.append(1 / (1 - top5_v100_frac * 9 / 10))
+    top_amdahl_a100.append(1 / (1 - top5_a100_frac * 9 / 10))
+
+    other_p100_frac = 1 - top5_p100_frac
+    other_v100_frac = 1 - top5_v100_frac
+    other_a100_frac = 1 - top5_a100_frac
+
+    combined_top5.sort(key=lambda x: x[3], reverse=True)
+
+    for opname, p100, v100, a100 in combined_top5:
+        opname_str = opname.replace('_', '\\_')
+        print(f'{opname_str} & {p100*100:.2f}\\% & {v100*100:.2f}\\% & {a100*100:.2f}\\% \\\\')
+
+
+
+    print(f'Other & {other_p100_frac*100:.2f}\\% & {other_v100_frac*100:.2f}\\% & {other_a100_frac*100:.2f}\\% \\\\')
+    print('\\hline')
+
+print('\\end{tabular}')
+
+for app in utils.apps:
+    prettyname = utils.app_pretty_names[app]
+    if app == 'nerf': continue
+    for plat in utils.plats:
+
+        print(f'{prettyname.ljust(15)} {plat}: {totals[app + plat]} kernels for 80%')
+
+
+gemm_amdahl_p100.append(scipy.stats.gmean(np.array(gemm_amdahl_p100)))
+gemm_amdahl_v100.append(scipy.stats.gmean(np.array(gemm_amdahl_v100)))
+gemm_amdahl_a100.append(scipy.stats.gmean(np.array(gemm_amdahl_a100)))
+
+top_amdahl_p100.append(scipy.stats.gmean(np.array(top_amdahl_p100)))
+top_amdahl_v100.append(scipy.stats.gmean(np.array(top_amdahl_v100)))
+top_amdahl_a100.append(scipy.stats.gmean(np.array(top_amdahl_a100)))
+
+def print_arr(l):
+    for i in l: print(f'{i:.2f}', end=' ')
+    print()
+
+print('GEMM Amdahl')
+print_arr(gemm_amdahl_p100)
+print_arr(gemm_amdahl_v100)
+print_arr(gemm_amdahl_a100)
+
+print('Top 5 Amdahl')
+print_arr(top_amdahl_p100)
+print_arr(top_amdahl_v100)
+print_arr(top_amdahl_a100)

@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+apps = utils.apps
+
+fig = plt.figure(figsize=(6, len(apps) * 3))
+axs = fig.subplots(len(apps), 1)
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+
+    prettyname = utils.app_pretty_names[app]
+    print(f'Processing {prettyname}...')
+
+    _, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'launch__thread_count',
+            # 'sm__throughput.avg.pct_of_peak_sustained_elapsed'
+        ])
+
+    ktimes = data[:, 0]
+    kthreads = data[:, 1]
+
+    idxs = np.argsort(kthreads)
+    ktimes = ktimes[idxs]
+    kthreads = kthreads[idxs]
+
+    frac_time = ktimes / sum(ktimes)
+
+    axs[i].set_title(f'{app}')
+    axs[i].scatter(np.cumsum(frac_time), kthreads, label=app, s=4)
+
+    axs[i].set_xlabel('Fraction of time')
+    axs[i].set_ylabel('# of threads')
+    # axs[i].loglog()
+
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/threads-vs-time.pdf')
+

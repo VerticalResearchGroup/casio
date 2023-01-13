@@ -1,0 +1,121 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import scipy
+import utils
+
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+apps = utils.apps
+
+WIDTH = 1.0
+
+v100_p100_speedup = 125 / 21.2
+a100_v100_speedup = 312 / 125
+
+v100_p100_mem = 900 / 720
+a100_v100_mem = 1555 / 900
+
+fig = plt.figure(figsize=(utils.COL_WIDTH, 2))
+axs = fig.subplots(1, 1)
+
+labels = []
+
+p100 = []
+v100 = []
+a100 = []
+
+labels = [utils.app_pretty_names[app] for app in utils.apps]
+gemm_times = {
+    plat: list(map(lambda x: x[0], utils.nsys_get_gemm_times(plat)))
+    for plat in utils.plats
+}
+
+p100_times = np.array(gemm_times['p100'])
+v100_times = np.array(gemm_times['v100'])
+a100_times = np.array(gemm_times['a100'])
+p100 = p100_times / p100_times
+v100 = p100_times / v100_times
+a100 = v100_times / a100_times
+labels = np.array(labels)
+
+# def get_mm_time(app, plat):
+#     batch = utils.get_large_batch_size(plat, app)
+#     nsys_trace_file = utils.get_nsys_gputrace_file(plat, app, batch)
+#     kernels = utils.read_nsys_trace(nsys_trace_file)
+#     return sum(k.time_ns for k in kernels if k.is_gemm)
+
+# for i, app in enumerate(apps):
+#     prettyname = utils.app_pretty_names[app]
+#     labels.append(prettyname)
+
+#     mm_times = {
+#         plat: get_mm_time(app, plat)
+#         for plat in utils.plats
+#     }
+
+#     p100.append(1)
+#     v100.append(mm_times['p100'] / mm_times['v100'])
+#     a100.append(mm_times['v100'] / mm_times['a100'])
+
+
+# p100 = np.array(p100)
+# v100 = np.array(v100)
+# a100 = np.array(a100)
+# labels = np.array(labels)
+
+
+idxs = v100.argsort()
+p100 = p100[idxs]
+v100 = v100[idxs]
+a100 = a100[idxs]
+labels = labels[idxs]
+
+p100 = np.append(p100, scipy.stats.mstats.gmean(p100))
+v100 = np.append(v100, scipy.stats.mstats.gmean(v100))
+a100 = np.append(a100, scipy.stats.mstats.gmean(a100))
+labels = np.append(labels, 'Geo. Mean')
+
+
+def print_arr(l):
+    for i in l:
+        print(f'{i:.2f}', end=' ')
+    print()
+
+print_arr(p100)
+print_arr(v100)
+print_arr(a100)
+
+xs = np.arange(len(apps) + 1) * 3
+
+#plot peak speedups
+axs.axhline(y=v100_p100_speedup, color=colors[0], linestyle='--', linewidth=1, zorder=10)
+axs.axhline(y=a100_v100_speedup, color=colors[1], linestyle='--', linewidth=1, zorder=10)
+
+# axs.axhline(y=v100_p100_mem, color=colors[0], linestyle=':', linewidth=1, zorder=10)
+# axs.axhline(y=a100_v100_mem, color=colors[1], linestyle=':', linewidth=1, zorder=10)
+
+
+# axs.bar(xs + 0, p100, width=WIDTH, label='P100')
+axs.bar(xs + 0, v100, width=WIDTH, label='V100 / P100', zorder=100)
+axs.bar(xs + 1, a100, width=WIDTH, label='A100 / V100', zorder=100)
+
+
+
+plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=6)
+plt.xlim([-WIDTH / 2, max(xs) + 2.5 - WIDTH])
+plt.ylim([0, 7.5])
+plt.yticks(fontsize=6)
+
+# plt.xlabel('Application', fontsize=8)
+plt.ylabel('Speedup', fontsize=8)
+plt.title('GEMM Performance Gains', fontsize=10)
+plt.legend(ncol=2, fontsize=6)
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/mm-speedup.pdf')

@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import numpy as np
+import matplotlib.pyplot as plt
+
+import bins
+
+mask_cols = {'MLH', 'MHH', 'HHH', 'MMH'}
+
+def multicol(text, n): return f'\\multicolumn{{{n}}}{{c}}{{{text}}}'
+def bold(text): return f'\\textbf{{{text}}}'
+
+SEP= ' & '
+
+cols = {}
+
+apps = utils.apps
+
+fig = plt.figure(figsize=(6, len(apps) * 3))
+axs = fig.subplots(len(apps), 1)
+
+def format_col(s):
+    return s.ljust(5)
+
+cols['header-1'] = [''] + [
+    bold(bstr) for bstr in bins.bin_str_to_idx.keys()
+    if bstr not in mask_cols
+]
+
+plat = sys.argv[1]
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
+    gemm_bins = {}
+    nongemm_bins = {}
+    prettyname = utils.app_pretty_names[app]
+    # print(f'Processing {prettyname}...')
+
+    if not os.path.exists(raw_file):
+        print(f' {raw_file} does not exist')
+        print()
+        continue
+
+    names, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'launch__thread_count',
+            'sm__throughput.avg.pct_of_peak_sustained_elapsed',
+            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
+        ])
+
+    ktimes = data[:, 0]
+
+    kthreads = data[:, 1]
+    ksm_pcts = data[:, 2]
+    kmem_pcts = data[:, 3]
+    kgemm = np.array([utils.is_gemm(k) for k in names])
+
+    gemm_time = (ktimes * kgemm).sum()
+    nongemm_time = (ktimes * (1 - kgemm)).sum()
+    total_time = ktimes.sum()
+
+    for k, t, thr, sm, mem, isgemm in zip(names, ktimes, kthreads, ksm_pcts, kmem_pcts, kgemm):
+        bstr = bins.get_bin_str(thr, sm, mem)
+        # print(b)
+        if isgemm: gemm_bins[bstr] = gemm_bins.get(bstr, 0) + t
+        else: nongemm_bins[bstr] = nongemm_bins.get(bstr, 0) + t
+
+    col_gemm = [
+        f'\\multirow{{2}}{{*}}{{{prettyname}}}'
+    ]
+    col_nongemm = ['']
+    for bstr in bins.bin_str_to_idx.keys():
+        if bstr in mask_cols: continue
+        gemm_frac = gemm_bins.get(bstr, 0) / total_time * 100
+        nongemm_frac = nongemm_bins.get(bstr, 0) / total_time * 100
+
+        gemm_frac_str = '-' if gemm_frac == 0 else f'{gemm_frac:.0f}'
+        nongemm_frac_str = '-' if nongemm_frac == 0 else f'{nongemm_frac:.0f}'
+
+        if gemm_frac_str == '0': gemm_frac_str = '-'
+        if nongemm_frac_str == '0': nongemm_frac_str = '-'
+
+        col_gemm.append(gemm_frac_str)
+        col_nongemm.append(nongemm_frac_str)
+
+    cols[app + '-gemm'] = col_gemm
+    cols[app + '-nongemm'] = col_nongemm
+
+
+align_str = 'l' + 'r' * len(bins.bin_str_to_idx)
+print(f'\\begin{{tabular}}{{{align_str}}}')
+print('\\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
+
+for app in utils.apps:
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-gemm'])), '\\\\')
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app + '-nongemm'])), '\\\\ \hline')
+
+print('\\end{tabular}')

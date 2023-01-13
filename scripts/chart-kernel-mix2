@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+import sys
+import numpy as np
+import utils
+
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+def shorten_string(s, lim=40):
+    if len(s) > lim:
+        return s[:lim - 3] + '...'
+    return s
+
+
+keep = 30
+# plt.title('Kernel Mix', fontsize=10)
+
+
+fig = plt.figure(figsize=(utils.COL_WIDTH, 8.5))
+axs = fig.subplots(len(utils.apps), 1)
+
+glb_kernel_frac = {}
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    kernel_frac = {}
+    prettyname = utils.app_pretty_names[app]
+
+    print(f'Processing {app}...')
+
+    names, data = utils.read_ncu_raw_file_numpy(
+        raw_file, ['gpu__time_duration.sum'])
+
+    tt = data[:, 0].sum()
+
+    for ki, name in enumerate(names):
+        if utils.is_gemm(name): name = 'gemm'
+
+        if name not in kernel_frac: glb_kernel_frac[name] = 0
+        glb_kernel_frac[name] += data[ki, 0] / tt
+
+ordered_kerns = list(glb_kernel_frac.keys())
+ordered_kerns.sort(key=lambda x: glb_kernel_frac.get(x, 0), reverse=True)
+
+kern_idx = {k: i for i, k in enumerate(ordered_kerns)}
+kern_idx['gemm'] = 'mm'
+
+ukerns_80 = set()
+ukerns_90 = set()
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    kernel_frac = {}
+    prettyname = utils.app_pretty_names[app]
+
+    # print(f'Processing {app}...')
+
+    names, data = utils.read_ncu_raw_file_numpy(
+        raw_file, ['gpu__time_duration.sum'])
+
+    tt = data[:, 0].sum()
+
+    for ki, name in enumerate(names):
+        if utils.is_gemm(name): name = 'gemm'
+
+        if name not in kernel_frac: kernel_frac[name] = 0
+        kernel_frac[name] += data[ki, 0] / tt
+
+
+    ordered_kerns = list(kernel_frac.keys())
+    ordered_kerns.sort(key=lambda x: kernel_frac.get(x, 0), reverse=True)
+    keep_kerns = ordered_kerns[:keep]
+    other_kerns = ordered_kerns[keep:]
+
+    bars = [
+        kernel_frac.get(k, 0) for k in keep_kerns
+    ] + [
+        sum(kernel_frac.get(k, 0) for k in other_kerns)
+    ]
+
+    idx_80 = 0
+    idx_90 = 0
+    cum_frac = 0
+    for j, b in enumerate(bars):
+        cum_frac += b
+        if cum_frac > 0.8 and idx_80 == 0: idx_80 = j
+        if cum_frac > 0.9 and idx_90 == 0: idx_90 = j
+
+    cum_frac = 0
+    for j, k in enumerate(ordered_kerns):
+        if cum_frac < 0.9: ukerns_90.add(k)
+        if cum_frac < 0.8: ukerns_80.add(k)
+
+        cum_frac += kernel_frac.get(k, 0)
+
+    xs = np.arange(len(keep_kerns) + 1)
+
+    cs = [colors[0] for _ in keep_kerns] + [colors[1]]
+
+    for ki, k in enumerate(keep_kerns):
+        if k == 'gemm':
+            cs[ki] = colors[2]
+            print(prettyname, 'gemm', kernel_frac[k])
+
+    axs[i].bar(
+        xs + 0.5,
+        bars,
+        color=cs)
+    # plt.boxplot(data, labels=keep_kerns + ['other'])
+
+    axs[i].axvline(idx_80 + 1.0, color=colors[3], linestyle='--', linewidth=1)
+    axs[i].axvline(idx_90 + 1.0, color=colors[4], linestyle='--', linewidth=1)
+
+    # plt.xlabel('Opcode')
+    # plt.ylabel('Total Frac. of Normalized App Runtime', fontsize=8)
+
+    # axs[i].set_title(prettyname, fontsize=8, loc='left')
+
+    axs[i].set_xticks(
+        xs + 0.5,
+        list(map(lambda k: kern_idx[k], keep_kerns)) + ['*'],
+        rotation=90,
+        fontsize=6)
+
+    axs[i].set_ylabel(prettyname, fontsize=8)
+
+    axs[i].semilogy()
+    axs[i].tick_params(axis='both', labelsize=6)
+
+    axs[i].set_xlim(0, len(keep_kerns) + 1)
+
+print('Unique kernels in top 80%:', len(ukerns_80))
+print('Unique kernels in top 90%:', len(ukerns_90))
+
+plt.subplots_adjust(hspace=0.01)
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig(f'charts/kernel-mix2.pdf')

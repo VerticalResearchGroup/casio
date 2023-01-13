@@ -1,0 +1,120 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import scipy
+import utils
+
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+apps = utils.apps
+
+WIDTH = 1.0
+
+v100_p100_speedup = 125 / 21.2
+a100_v100_speedup = 312 / 125
+
+v100_p100_mem = 900 / 720
+a100_v100_mem = 1555 / 900
+
+stats = [
+    'gpu__time_duration.sum',
+    'inst_executed'
+]
+
+fig = plt.figure(figsize=(utils.COL_WIDTH, 2))
+axs = fig.subplots(1, 1)
+
+glb_unames = set()
+
+labels = []
+
+speedup_1x = []
+speedup_10x = []
+speedup_100x = []
+
+for i, app in enumerate(apps):
+    prettyname = utils.app_pretty_names[app]
+    optrace_file = utils.get_optrace_file_lb('a100', app)
+    if not os.path.exists(optrace_file): continue
+
+    trace = utils.read_optrace(optrace_file)
+    labels.append(prettyname)
+
+    unames = set(x.name for x in trace)
+
+    op_times = {
+        name: sum(x.accel_time for x in trace if x.name == name)
+        for name in unames
+    }
+
+    op_times = [(name, time) for name, time in op_times.items()]
+    op_times.sort(key=lambda x: x[1], reverse=True)
+    op_times = op_times[:3]
+
+    top3_ops = set(x[0] for x in op_times)
+    glb_unames = glb_unames.union(top3_ops)
+
+    total_time = sum(x.accel_time for x in trace)
+    total_time_10x = sum(
+        x.accel_time / (2 if x.name in top3_ops else 1)
+        for x in trace
+    )
+    total_time_100x = sum(
+        x.accel_time / (10 if x.name in top3_ops else 1)
+        for x in trace
+    )
+
+    speedup_1x.append(1)
+    speedup_10x.append(total_time / total_time_10x)
+    speedup_100x.append(total_time / total_time_100x)
+
+    print(f'{prettyname.ljust(15)}: {speedup_1x[-1]:.2f}x, {speedup_10x[-1]:.2f}x, {speedup_100x[-1]:.2f}x')
+
+speedup_1x = np.array(speedup_1x)
+speedup_10x = np.array(speedup_10x)
+speedup_100x = np.array(speedup_100x)
+labels = np.array(labels)
+
+idxs = speedup_100x.argsort()
+speedup_1x = speedup_1x[idxs]
+speedup_10x = speedup_10x[idxs]
+speedup_100x = speedup_100x[idxs]
+labels = labels[idxs]
+
+speedup_1x = np.append(speedup_1x, scipy.stats.mstats.gmean(speedup_1x))
+speedup_10x = np.append(speedup_10x, scipy.stats.mstats.gmean(speedup_10x))
+speedup_100x = np.append(speedup_100x, scipy.stats.mstats.gmean(speedup_100x))
+labels = np.append(labels, 'Geo. Mean')
+
+print(f'{"GM".ljust(15)}: {speedup_1x[-1]:.2f}x, {speedup_10x[-1]:.2f}x, {speedup_100x[-1]:.2f}x')
+
+
+xs = np.arange(len(labels)) * 4
+
+print(f'Total unique ops: {len(glb_unames)}')
+
+#plot peak speedups
+# axs.axhline(y=1, linestyle='--', linewidth=1, zorder=10)
+
+axs.bar(xs + 0, speedup_1x, width=WIDTH, label='Top3 x1', zorder=100)
+axs.bar(xs + 1, speedup_10x, width=WIDTH, label='Top3 x2', zorder=100)
+axs.bar(xs + 2, speedup_100x, width=WIDTH, label='Top3 x10', zorder=100)
+
+
+plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=6)
+plt.xlim([-WIDTH / 2, max(xs) + 3.5 - WIDTH])
+plt.ylim([0, 5])
+plt.yticks(fontsize=6)
+
+# plt.xlabel('Application', fontsize=8)
+plt.ylabel('Speedup', fontsize=8)
+plt.title('Amdahl Performance Gains', fontsize=10)
+plt.legend(ncol=1, fontsize=6)
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/amdahl-speedup.pdf')

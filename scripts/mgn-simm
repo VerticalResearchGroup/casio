@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+import utils.cache
+
+apps = utils.apps #[:4]
+
+@utils.cache.cache_pickle
+def get_hw_data(app, plat, batch):
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
+    _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
+    return data
+
+@utils.cache.cache_pickle
+def get_kern_names2(app, plat, batch):
+    batch = utils.get_large_batch_size(plat, app)
+    kerns = utils.read_nsys_trace(utils.get_nsys_gputrace_file(plat, app, batch))
+
+    return [k.name for k in kerns]
+
+fig = plt.figure(figsize=(20,20))
+
+all_data = None
+app = 'meshgraphnets-cfd'
+batch = utils.get_large_batch_size('a100', app)
+
+print(f'Processing {app}...')
+data = get_hw_data(app, 'a100', batch)
+if all_data is None: all_data = data
+else: all_data = np.concatenate((all_data, data), axis=0)
+
+hw_heatmap = squareform(pdist(data, 'cosine'))
+app_clusters = len(utils.pick_clusters(hw_heatmap))
+cuml_clusters = len(utils.pick_clusters(squareform(pdist(all_data, 'cosine'))))
+
+prettyname = utils.app_pretty_names[app]
+
+dyn_knames = get_kern_names2(app, 'a100', batch)
+
+nkern_dyn = len(dyn_knames)
+ngemm_dyn = 0
+
+for kname in dyn_knames:
+    if utils.is_gemm(kname):
+        ngemm_dyn += 1
+
+print('Dynamic kernels:', nkern_dyn, 'GEMMs:', ngemm_dyn)
+
+knames = set(dyn_knames)
+nkern_static = len(knames)
+ngemm_static = 0
+
+for kname in knames:
+    if utils.is_gemm(kname):
+        ngemm_static += 1
+
+print('Static kernels:', nkern_static, 'GEMMs:', ngemm_static)
+
+plt.imshow(hw_heatmap, cmap='hot', interpolation='nearest')
+# plt.set_xlim(0, hw_heatmap.shape[1])
+# plt.set_ylim(0, hw_heatmap.shape[0])
+plt.xticks([])
+plt.yticks([])
+# plt.set_xlabel(f'{app_clusters} / {cuml_clusters}', fontsize=6)
+
+
+plt.tight_layout()
+
+os.makedirs('charts', exist_ok=True)
+plt.subplots_adjust(wspace=0.2, hspace=0.0)
+plt.savefig('charts/mgn-simm.pdf')
+
+
+

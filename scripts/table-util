@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import utils
+
+def multicol(text, n): return f'\\multicolumn{{{n}}}{{c}}{{{text}}}'
+def bold(text): return f'\\textbf{{{text}}}'
+
+def shorten_string(s, lim=50):
+    if len(s) > lim:
+        return s[:lim - 3] + '...'
+    return s
+
+apps = utils.apps
+apps.remove('tabnet')
+
+# https://developer.nvidia.com/blog/nvidia-ampere-architecture-in-depth/
+peak_compute_a100 = np.array([
+    19.5e12, # FP32 peak for A100
+    78e12,   # FP16 peak for A100
+    312e12,  # FP16 TC peak for A100
+])
+
+peak_compute_v100 = np.array([
+    15.7e12, # FP32 peak for A100
+    31.4e12,   # FP16 peak for A100
+    125e12,  # FP16 TC peak for A100
+])
+
+app_flops = {}
+
+SEP = ' & '
+
+cols = {
+    'header-1': [
+        '',
+        multicol(bold('A100'), 2),
+        multicol(bold('V100'), 2),
+        multicol(bold('P100'), 1),
+    ],
+    'header-2': [
+        bold('Application'),
+        bold('FU \\%'),
+        bold('TC \\%'),
+        bold('FU \\%'),
+        bold('TC \\%'),
+        bold('FU \\%'),
+    ]
+}
+
+cols.update({
+    app: [utils.app_pretty_names[app]]
+    for app in apps
+})
+
+
+for plat in ['a100', 'v100']:
+    peak_compute = peak_compute_v100 if plat == 'v100' else peak_compute_a100
+    for i, app in enumerate(apps):
+        batch = utils.get_large_batch_size(plat, app)
+        thput = utils.throughput(plat, app, batch)
+        raw_file = utils.get_ncu_raw_file(plat, app, batch)
+
+        if not os.path.exists(raw_file): continue
+
+        knames, data = utils.read_ncu_raw_file_numpy(
+            raw_file,
+            [
+                'gpu__time_duration.sum',
+                'sm__pipe_fma_cycles_active.avg.pct_of_peak_sustained_elapsed',
+                'sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_elapsed',
+                'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
+            ])
+
+        tot_time = data[:, 0].sum() # In Nanoseconds
+        frac_time = data[:, 0] / tot_time
+        kern_tops = (data[:, 1:] / 100) * peak_compute
+        kern_hw_aware_tops = kern_tops.max(axis=1)
+        idxs = kern_tops.argmax(axis=1) + 1
+
+        kern_hw_aware_util = np.array([
+            data[i, idxs[i]] for i in range(len(idxs))
+        ])
+
+        kern_tensor_util = kern_hw_aware_tops / peak_compute[-1] * 100
+        hw_aware_flops = (kern_hw_aware_tops * frac_time).sum()
+        hw_aware_util = (kern_hw_aware_util * frac_time).sum()
+        tensor_util = (kern_tensor_util * frac_time).sum()
+
+        total_flops = hw_aware_flops * (1 / thput)
+        if plat == 'a100': app_flops[app] = total_flops
+
+        cols[app] += [
+            f'{hw_aware_util:.2f}',
+            f'{tensor_util:.2f}',
+        ]
+
+for i, app in enumerate(apps):
+    batch = utils.get_large_batch_size('p100', app)
+    prettyname = utils.app_pretty_names[app]
+    niter = utils.get_nsys_niter('p100', app, batch)
+
+    tot_time = 0
+    gpukernsum_file = f'{utils.CASIO}/casio-results/summaries/p100/{app}/batch-{batch}_gpukernsum.csv'
+
+    with open(gpukernsum_file) as f:
+        next(f)
+        for line in f:
+            if not utils.is_blacklisted(line):
+                ktime, kinst, kname = utils.parse_nsys_kernsum2(line.strip())
+                if not utils.is_blacklisted(kname):
+                    tot_time += ktime / 1e9 / niter
+
+    if app not in app_flops: continue
+
+    tot_app_flops = app_flops[app]
+    hw_aware_flops = tot_app_flops / tot_time
+    hw_aware_util = hw_aware_flops / 21.2e12 * 100
+
+    cols[app] += [
+        f'{hw_aware_util:.2f}'
+    ]
+
+
+
+
+print('\\begin{tabular}{lrrrrr}')
+print('\\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-1'])), '\\\\ \\hline')
+print(SEP.join(map(lambda s: s.ljust(15), cols['header-2'])), '\\\\ \\hline')
+
+for app in apps:
+    print(SEP.join(map(lambda s: s.ljust(15), cols[app])), '\\\\')
+
+print('\\hline')
+print('\\end{tabular}')

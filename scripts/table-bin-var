@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import bins
+import numpy as np
+import matplotlib.pyplot as plt
+
+WINDOW_LEN = bins.NUM_BINS
+
+plat = sys.argv[1]
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
+    prettyname = utils.app_pretty_names[app]
+
+    if not os.path.exists(raw_file):
+        print(f' {raw_file} does not exist')
+        print()
+        continue
+
+    names, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'launch__thread_count',
+            'sm__throughput.avg.pct_of_peak_sustained_elapsed',
+            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
+        ])
+
+    ktimes = data[:, 0]
+    kstats = data[:, 1:4]
+
+    bins_per_window = []
+
+    for i in range(len(names) - WINDOW_LEN):
+        binss = set([
+            bins.get_bin_str_vec(kstats[i + j])
+            for j in range(WINDOW_LEN)
+        ])
+
+        bins_per_window.append(len(binss))
+
+    avg_bins_per_window = np.mean(bins_per_window)
+    print(f'{prettyname}: {avg_bins_per_window}')

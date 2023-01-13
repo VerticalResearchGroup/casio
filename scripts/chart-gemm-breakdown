@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import scipy
+import utils
+import utils.cache
+
+WIDTH = 1.0
+
+def times_to_fracs(times): return list(map(lambda x: x[0] / x[1], times))
+
+labels = [utils.app_pretty_names[app] for app in utils.apps]
+gemm_times = {
+    plat: times_to_fracs(utils.nsys_get_gemm_times(plat))
+    for plat in utils.plats
+}
+
+gemm_raw_times = {
+    plat: list(map(lambda x: x[0]/1e6, utils.nsys_get_gemm_times(plat)))
+    for plat in utils.plats
+}
+
+
+# Add geomeans
+gemm_times['p100'].append(scipy.stats.mstats.gmean(gemm_times['p100']))
+gemm_times['v100'].append(scipy.stats.mstats.gmean(gemm_times['v100']))
+gemm_times['a100'].append(scipy.stats.mstats.gmean(gemm_times['a100']))
+labels.append('Geo. Mean')
+
+def print_arr(l):
+    for i in l:
+        print(f'{i:.2f}', end=' ')
+    print()
+
+print_arr(gemm_times['p100'])
+print_arr(gemm_times['v100'])
+print_arr(gemm_times['a100'])
+
+print_arr(gemm_raw_times['p100'])
+print_arr(gemm_raw_times['v100'])
+print_arr(gemm_raw_times['a100'])
+
+fig = plt.figure(figsize=(utils.COL_WIDTH, 2))
+axs = fig.subplots(1, 1)
+
+xs = np.arange(len(labels)) * 4
+axs.bar(xs + 0, gemm_times['p100'], width=WIDTH, label='P100')
+axs.bar(xs + 1, gemm_times['v100'], width=WIDTH, label='V100')
+axs.bar(xs + 2, gemm_times['a100'], width=WIDTH, label='A100')
+
+plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=6)
+
+plt.xlim([-WIDTH / 2, max(xs) + 3.5 - WIDTH])
+plt.ylim([0, 1.0])
+plt.yticks(fontsize=6)
+
+# plt.xlabel('Application', fontsize=8)
+plt.ylabel('Fraction of Time', fontsize=8)
+plt.title('Time spent in GEMM-based Kernels', fontsize=10)
+plt.legend(
+    ncol=3,
+    fontsize=6,
+    bbox_to_anchor=(0, 1.05),
+    loc='upper left',)
+
+plt.tight_layout()
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/gemm-breakdown.pdf')

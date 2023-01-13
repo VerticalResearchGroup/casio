@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+
+all_unique_ops = set()
+
+totals = {}
+
+idx = int(sys.argv[1])
+
+for app in [utils.apps[idx]]:
+    traces = {}
+    for plat in utils.plats:
+        optrace_file = utils.get_optrace_file_lb(plat, app)
+        if not os.path.exists(optrace_file): assert False, f'{optrace_file} does not exist'
+        traces[plat] = utils.read_optrace(optrace_file)
+
+    unqiue_op_names = set([op.name for op in traces['a100']])
+
+    for opname in unqiue_op_names:
+        print(utils.shorten_string(opname, 100))
+
+
+    # all_unique_ops = all_unique_ops.union(unqiue_op_names)
+
+    # def runtime_contrib(opname, plat):
+    #     total_time = sum(op.accel_time for op in traces[plat])
+    #     return sum(op.accel_time for op in traces[plat] if op.name == opname) / total_time
+
+    # contrib = {}
+    # top_ops = set()
+
+    # for plat in utils.plats:
+    #     total_time = sum(op.accel_time for op in traces[plat])
+
+    #     if total_time == 0: continue
+
+    #     contrib[plat] = [
+    #         (opname, runtime_contrib(opname, plat))
+    #         for opname in unqiue_op_names
+    #     ]
+
+    #     contrib[plat].sort(key=lambda x: x[1], reverse=True)
+
+    #     for opname, frac in contrib[plat][:3]: top_ops.add(opname)
+
+    #     n80 = 0
+    #     tot_frac = 0
+    #     for opname, frac in contrib[plat]:
+    #         n80 += 1
+    #         tot_frac += frac
+    #         if tot_frac >= 0.8: break
+
+    #     totals[app + plat] = n80
+

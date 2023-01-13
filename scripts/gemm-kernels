@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import utils
+import utils.cache
+
+all_fw_ops = set()
+all_kerns = {plat: set() for plat in utils.plats}
+
+all_p100_gemm_kerns = set()
+all_v100_gemm_kerns = set()
+all_a100_gemm_kerns = set()
+
+
+@utils.cache.cache_list(str)
+def nsys_gemmkern_unames(app, plat, batch):
+    batch = utils.get_large_batch_size(plat, app)
+    nsys_trace_file = utils.get_nsys_gputrace_file(plat, app, batch)
+    kernels = utils.read_nsys_trace(nsys_trace_file)
+    gemmkern_unames = set(k.name for k in kernels if k.is_gemm)
+    return list(gemmkern_unames)
+
+for app in utils.apps:
+    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
+
+    for plat in utils.plats:
+        batch = utils.get_large_batch_size(plat, app)
+        gemmkern_unames = nsys_gemmkern_unames(app, plat, batch)
+
+        if plat == 'p100': all_p100_gemm_kerns = all_p100_gemm_kerns.union(gemmkern_unames)
+        if plat == 'v100': all_v100_gemm_kerns = all_v100_gemm_kerns.union(gemmkern_unames)
+        if plat == 'a100': all_a100_gemm_kerns = all_a100_gemm_kerns.union(gemmkern_unames)
+
+        # print(f'{prettyname.ljust(15)}{plat}: {len(gemmkern_unames)}')
+
+
+print('P100: ', len(all_p100_gemm_kerns))
+print('V100: ', len(all_v100_gemm_kerns))
+print('A100: ', len(all_a100_gemm_kerns))
