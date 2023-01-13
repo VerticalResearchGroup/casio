@@ -14,22 +14,26 @@ print(f'\\textbf{{Op Name}} & \\textbf{{ROI (s)}} & ', ' & '.join(['\\textbf{kDy
 print('\\hline')
 for app in utils.apps:
     optrace_file = utils.get_optrace_file_lb('a100', app)
-    if not os.path.exists(optrace_file): continue
-    trace = utils.read_optrace(optrace_file)
+    cols = [prettyname]
+    if os.path.exists(optrace_file):
+        trace = utils.read_optrace(optrace_file)
 
-    if sum(op.accel_time for op in trace) == 0: continue
+        if sum(op.accel_time for op in trace) == 0: continue
 
-    unqiue_op_names = set([ op.name for op in trace ])
-    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
-    all_fw_ops = all_fw_ops.union(unqiue_op_names)
-    tot_time = sum(op.accel_time for op in trace)
-    cols = [
-        prettyname,
-        f'{tot_time:.1f}',
-        f'{len(trace)/1000:.1f}',
-        f'{len(unqiue_op_names)}',
-        f'{len(all_fw_ops)}'
-    ]
+        unqiue_op_names = set([ op.name for op in trace ])
+        prettyname = utils.app_pretty_names[app].replace('_', '\\_')
+        all_fw_ops = all_fw_ops.union(unqiue_op_names)
+        tot_time = sum(op.accel_time for op in trace)
+
+        cols += [
+            f'{tot_time:.1f}',
+            f'{len(trace)/1000:.1f}',
+            f'{len(unqiue_op_names)}',
+            f'{len(all_fw_ops)}'
+        ]
+
+    else:
+
 
     for plat in utils.plats:
         batch = utils.get_large_batch_size(plat, app)

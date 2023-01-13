@@ -20,12 +20,30 @@ gemm_times = {
     for plat in utils.plats
 }
 
+gemm_raw_times = {
+    plat: list(map(lambda x: x[0]/1e6, utils.nsys_get_gemm_times(plat)))
+    for plat in utils.plats
+}
+
 
 # Add geomeans
 gemm_times['p100'].append(scipy.stats.mstats.gmean(gemm_times['p100']))
 gemm_times['v100'].append(scipy.stats.mstats.gmean(gemm_times['v100']))
 gemm_times['a100'].append(scipy.stats.mstats.gmean(gemm_times['a100']))
 labels.append('Geo. Mean')
+
+def print_arr(l):
+    for i in l:
+        print(f'{i:.2f}', end=' ')
+    print()
+
+print_arr(gemm_times['p100'])
+print_arr(gemm_times['v100'])
+print_arr(gemm_times['a100'])
+
+print_arr(gemm_raw_times['p100'])
+print_arr(gemm_raw_times['v100'])
+print_arr(gemm_raw_times['a100'])
 
 fig = plt.figure(figsize=(utils.COL_WIDTH, 2))
 axs = fig.subplots(1, 1)

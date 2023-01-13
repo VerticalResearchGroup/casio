@@ -3,10 +3,25 @@
 import os
 import sys
 import utils
+import numpy as np
+import scipy
+import scipy.stats
 
 all_unique_ops = set()
 
 totals = {}
+
+gemm_ops = {
+    'matmul', 'conv', 'conv-bwd'
+}
+
+gemm_amdahl_p100 = []
+gemm_amdahl_v100 = []
+gemm_amdahl_a100 = []
+
+top_amdahl_p100 = []
+top_amdahl_v100 = []
+top_amdahl_a100 = []
 
 print('\\begin{tabular}{lrrr}')
 print('\\textbf{{Op Name}} & \\textbf{{P100}} & \\textbf{{V100}} & \\textbf{{A100}} \\\\')
@@ -71,9 +86,21 @@ for app in utils.apps:
         for opname in top_ops
     ]
 
+    gemm_contrib_p100 = sum(runtime_contrib(x, 'p100') for x in top_ops if x in gemm_ops)
+    gemm_contrib_v100 = sum(runtime_contrib(x, 'v100') for x in top_ops if x in gemm_ops)
+    gemm_contrib_a100 = sum(runtime_contrib(x, 'a100') for x in top_ops if x in gemm_ops)
+
+    if gemm_contrib_p100 > 0: gemm_amdahl_p100.append(1 / (1 - gemm_contrib_p100* 9 / 10))
+    if gemm_contrib_v100 > 0: gemm_amdahl_v100.append(1 / (1 - gemm_contrib_v100* 9 / 10))
+    if gemm_contrib_a100 > 0: gemm_amdahl_a100.append(1 / (1 - gemm_contrib_a100/2))
+
     top5_p100_frac = sum(frac for opname, frac, _, _ in combined_top5)
     top5_v100_frac = sum(frac for opname, _, frac, _ in combined_top5)
     top5_a100_frac = sum(frac for opname, _, _, frac in combined_top5)
+
+    top_amdahl_p100.append(1 / (1 - top5_p100_frac * 9 / 10))
+    top_amdahl_v100.append(1 / (1 - top5_v100_frac * 9 / 10))
+    top_amdahl_a100.append(1 / (1 - top5_a100_frac * 9 / 10))
 
     other_p100_frac = 1 - top5_p100_frac
     other_v100_frac = 1 - top5_v100_frac
@@ -98,3 +125,26 @@ for app in utils.apps:
     for plat in utils.plats:
 
         print(f'{prettyname.ljust(15)} {plat}: {totals[app + plat]} kernels for 80%')
+
+
+gemm_amdahl_p100.append(scipy.stats.gmean(np.array(gemm_amdahl_p100)))
+gemm_amdahl_v100.append(scipy.stats.gmean(np.array(gemm_amdahl_v100)))
+gemm_amdahl_a100.append(scipy.stats.gmean(np.array(gemm_amdahl_a100)))
+
+top_amdahl_p100.append(scipy.stats.gmean(np.array(top_amdahl_p100)))
+top_amdahl_v100.append(scipy.stats.gmean(np.array(top_amdahl_v100)))
+top_amdahl_a100.append(scipy.stats.gmean(np.array(top_amdahl_a100)))
+
+def print_arr(l):
+    for i in l: print(f'{i:.2f}', end=' ')
+    print()
+
+print('GEMM Amdahl')
+print_arr(gemm_amdahl_p100)
+print_arr(gemm_amdahl_v100)
+print_arr(gemm_amdahl_a100)
+
+print('Top 5 Amdahl')
+print_arr(top_amdahl_p100)
+print_arr(top_amdahl_v100)
+print_arr(top_amdahl_a100)

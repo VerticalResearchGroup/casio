@@ -81,6 +81,16 @@ v100 = np.append(v100, scipy.stats.mstats.gmean(v100))
 a100 = np.append(a100, scipy.stats.mstats.gmean(a100))
 labels = np.append(labels, 'Geo. Mean')
 
+
+def print_arr(l):
+    for i in l:
+        print(f'{i:.2f}', end=' ')
+    print()
+
+print_arr(p100)
+print_arr(v100)
+print_arr(a100)
+
 xs = np.arange(len(apps) + 1) * 3
 
 #plot peak speedups

@@ -7,54 +7,67 @@ from scipy.spatial.distance import squareform
 import sys
 import numpy as np
 import utils
+import utils.cache
 
 def shorten_string(s, lim=15):
     if len(s) > lim:
         return s[:lim - 3] + '...'
     return s
 
-all_opcodes = set()
-opcode_counts = {}
-traces = {}
 keep = 49
 
 filter_by = sys.argv[1]
 
-for app in utils.apps: #[:4]:
-    batch = utils.get_large_batch_size('a100', app)
-    sass_file = utils.get_ncu_sass_file('a100', app, batch)
 
-    print(f'Processing {app}...')
-    kernels = utils.parse_ncu_sass(sass_file)
-    opcodes = utils.ncu_sass_opcodes(kernels)
+@utils.cache.cache_pickle
+def get_sass_data():
+    all_opcodes = set()
+    opcode_counts = {}
+    traces = {}
+    max_inst = {}
+    for app in utils.apps: #[:4]:
+        batch = utils.get_large_batch_size('a100', app)
+        sass_file = utils.get_ncu_sass_file('a100', app, batch)
 
-    if filter_by == 'gemm':
-        kernels = [k for k in kernels if utils.is_gemm(k.name)]
-    elif filter_by == 'nongemm':
-        kernels = [k for k in kernels if not utils.is_gemm(k.name)]
+        print(f'Processing {app}...')
+        kernels = utils.parse_ncu_sass(sass_file)
+        opcodes = utils.ncu_sass_opcodes(kernels)
 
-    total_insts = sum(i.thread_inst_exec for k in kernels for i in k.trace)
+        if filter_by == 'gemm':
+            kernels = [k for k in kernels if utils.is_gemm(k.name)]
+        elif filter_by == 'nongemm':
+            kernels = [k for k in kernels if not utils.is_gemm(k.name)]
 
-    for k in kernels:
-        # if utils.is_gemm(k.name):
-        for i in k.trace:
-            if i.opcode not in opcode_counts:
-                opcode_counts[i.opcode] = 0
-            opcode_counts[i.opcode] += i.thread_inst_exec / total_insts
+        total_insts = sum(i.thread_inst_exec for k in kernels for i in k.trace)
 
-    all_opcodes = all_opcodes.union(opcodes)
-    traces[app] = kernels
+        for k in kernels:
+            # if utils.is_gemm(k.name):
+            max_inst[k.name] = max(max_inst.get(k.name, 0), len(k.trace))
+            for i in k.trace:
+                if i.opcode not in opcode_counts:
+                    opcode_counts[i.opcode] = 0
+                opcode_counts[i.opcode] += i.thread_inst_exec / total_insts
 
+        all_opcodes = all_opcodes.union(opcodes)
+        traces[app] = kernels
+
+    return all_opcodes, opcode_counts, traces, max_inst
+
+all_opcodes, opcode_counts, traces, max_inst = get_sass_data()
 
 ordered_opcodes = list(all_opcodes)
 ordered_opcodes.sort(key=lambda x: opcode_counts.get(x, 0), reverse=True)
 print(f'Found {len(all_opcodes)} unique opcodes')
 
+print('Total Static SASS insts:', sum(max_inst.values()))
 
-plt.figure(figsize=(utils.TEXT_WIDTH, 3))
-plt.title('SASS Opcode Mix', fontsize=10)
+plt.figure(figsize=(utils.TEXT_WIDTH, 2.5))
+plt.title('SASS Opcode Mix', fontsize=8)
 
 xs = np.arange(len(all_opcodes)+1)[:keep + 1]
+
+bra_i = ordered_opcodes.index('BRA')
+bra_contrib = []
 
 for app, trace in traces.items():
     app_opcode_counts = {opcode: 0 for opcode in all_opcodes}
@@ -66,17 +79,20 @@ for app, trace in traces.items():
 
 
     app_opcode_counts = np.array([app_opcode_counts.get(opcode, 0) for opcode in ordered_opcodes])
-    cum_app_opcode_counts = np.cumsum(app_opcode_counts)[:keep]
     total_insts = np.sum(app_opcode_counts)
+    bra_contrib.append(app_opcode_counts[bra_i] / total_insts)
+    cum_app_opcode_counts = np.cumsum(app_opcode_counts)[:keep]
     cum_app_opcode_counts = np.append(cum_app_opcode_counts, total_insts)
 
     plt.plot(xs, cum_app_opcode_counts / total_insts, label=prettyname)
 
-plt.legend(ncol=2, fontsize=6)
+plt.legend(ncol=3, fontsize=6)
 # plt.xlabel('Opcode')
 plt.ylabel('Cum. Frac. of Instructions', fontsize=8)
 
-
+bra_contrib = np.array(bra_contrib)
+print('BRA contrib:', np.mean(bra_contrib), np.std(bra_contrib))
+print('BRA contrib:', np.min(bra_contrib), np.max(bra_contrib))
 
 plt.xticks(
     xs,

@@ -10,6 +10,7 @@ from matplotlib.patches import Rectangle
 import numpy as np
 import scipy
 import utils
+import utils.cache
 import bins
 
 
@@ -22,20 +23,32 @@ print(f'# colors = {len(colors)}')
 plat = sys.argv[1]
 
 # fig = plt.figure()
-fig, ax = plt.subplots(figsize=(utils.TEXT_WIDTH, 2.5))
+fig, ax = plt.subplots(figsize=(utils.COL_WIDTH, 2))
 
 labels = []
 
-for i, app in enumerate(utils.apps):
+def avg_runlen(kstats):
+    run_lengths = []
+    cur_bin = None
+    for i in range(len(kstats)):
+        this_bin = bins.get_bin_str_vec(kstats[i])
+
+        if this_bin == cur_bin:
+            run_lengths[-1] += 1
+        else:
+            run_lengths.append(1)
+            cur_bin = this_bin
+
+    return np.mean(run_lengths)
+
+@utils.cache.cache_pickle
+def get_runlens(plat, app):
     batch = utils.get_large_batch_size(plat, app)
     raw_file = utils.get_ncu_raw_file(plat, app, batch)
-    prettyname = utils.app_pretty_names[app]
-    labels.append(prettyname)
 
     if not os.path.exists(raw_file):
         print(f' {raw_file} does not exist')
-        print()
-        continue
+        return []
 
     names, data = utils.read_ncu_raw_file_numpy(
         raw_file,
@@ -58,6 +71,8 @@ for i, app in enumerate(utils.apps):
     gemm_lengths = []
     cur_gemm = None
 
+    avg_runlength = avg_runlen(kstats)
+
     for ki in range(len(names)):
         this_bin = bins.get_bin_str_vec(kstats[ki])
 
@@ -75,29 +90,38 @@ for i, app in enumerate(utils.apps):
             is_gemm.append(utils.is_gemm(names[ki]))
             cur_gemm = utils.is_gemm(names[ki])
 
+    return avg_runlength, np.array(run_lengths), np.array(run_bins), np.array(gemm_lengths), np.array(is_gemm)
+
+for i, app in enumerate(utils.apps):
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
+    prettyname = utils.app_pretty_names[app]
+
+    avg, runlens, runbins, gemmlens, isgemm = get_runlens(plat, app)
+
+    labels.append(f'{prettyname} ({avg:.1f})')
 
     ti = 0
-    for bin, rl in zip(run_bins, run_lengths):
+    for bin, rl in zip(runbins, runlens):
         bin_idx = bins.bin_str_to_idx[bin]
         ax.add_patch(Rectangle((ti, i*4), rl, 3, lw=1, facecolor=bins.colors[bin_idx]))
         ti += rl
 
-
     ti = 0
-    for gemm, rl in zip(is_gemm, gemm_lengths):
+    for gemm, rl in zip(isgemm, gemmlens):
         if gemm: ax.add_patch(Rectangle((ti, i*4), rl, 0.5, lw=1, facecolor='#000000'))
         ti += rl
 
 
-plt.xlabel('Fraction of Time', fontsize=8)
+plt.xlabel('Fraction of Time', fontsize=6)
 # plt.ylabel('Application', fontsize=8)
-plt.yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels, fontsize=8)
-plt.xticks(fontsize=8)
-plt.title('Application Snapshots', fontsize=10)
+plt.yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels, fontsize=6)
+plt.xticks(fontsize=6)
+plt.title('Application Snapshots', fontsize=8)
 plt.xlim(0, 1.0)
 plt.ylim(0, 4 * len(utils.apps) - 1)
 # plt.legend(ncol=1, fontsize=6)
-plt.tight_layout()
+plt.tight_layout(pad=0)
 os.makedirs('charts', exist_ok=True)
 plt.savefig('charts/app-snap.pdf')
 

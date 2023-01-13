@@ -7,29 +7,18 @@ from scipy.spatial.distance import squareform
 
 import numpy as np
 import utils
+import utils.cache
 
 apps = utils.apps #[:4]
 
-def get_sass_heatmap(sass_file):
-    kernels = utils.parse_ncu_sass(sass_file)
-    opcodes = utils.ncu_sass_opcodes(kernels)
-    opcode_map = {op: i for i, op in enumerate(opcodes)}
-
-    all_data = np.array([
-        k.to_feature_vector(opcode_map)
-        for k in kernels
-    ])
-
-    packed_dists = pdist(all_data, 'cosine')
-    return squareform(packed_dists)
-
-
-def get_hw_heatmap(raw_file):
+@utils.cache.cache_pickle
+def get_hw_data(app, plat, batch):
+    batch = utils.get_large_batch_size(plat, app)
+    raw_file = utils.get_ncu_raw_file(plat, app, batch)
     _, data = utils.read_ncu_raw_file_numpy(raw_file, utils.stats_of_interest[1:])
-    packed_dists = pdist(data, 'cosine')
-    return squareform(packed_dists)
+    return data
 
-fig = plt.figure(figsize=(utils.TEXT_WIDTH, 1.5))
+fig = plt.figure(figsize=(utils.TEXT_WIDTH, 1))
 # gs = fig.add_gridspec(5, len(apps) // 2, height_ratios=[1, 1, 0.2, 1, 1])
 # axs = np.array([
 #     [fig.add_subplot(gs[0, i]) for i in range(len(apps) // 2)],
@@ -38,41 +27,36 @@ fig = plt.figure(figsize=(utils.TEXT_WIDTH, 1.5))
 #     [fig.add_subplot(gs[4, i]) for i in range(len(apps) // 2)],
 # ])
 
-gs = fig.add_gridspec(2, len(apps))
+gs = fig.add_gridspec(1, len(apps))
 axs = np.array([
     [fig.add_subplot(gs[0, i]) for i in range(len(apps))],
-    [fig.add_subplot(gs[1, i]) for i in range(len(apps))],
+    # [fig.add_subplot(gs[1, i]) for i in range(len(apps))],
 ])
 
+all_data = None
 for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('a100', app)
-    sass_file = utils.get_ncu_sass_file('a100', app, batch)
-    raw_file = utils.get_ncu_raw_file('a100', app, batch)
     # r, c = int((i % 2) * 2), int(i / 2)
     r, c = 0, i
 
     print(f'Processing {app}...')
-    sass_heatmap = get_sass_heatmap(sass_file)
-    hw_heatmap = get_hw_heatmap(raw_file)
+    data = get_hw_data(app, 'a100', batch)
+    if all_data is None: all_data = data
+    else: all_data = np.concatenate((all_data, data), axis=0)
+
+    hw_heatmap = squareform(pdist(data, 'cosine'))
+    app_clusters = len(utils.pick_clusters(hw_heatmap))
+    cuml_clusters = len(utils.pick_clusters(squareform(pdist(all_data, 'cosine'))))
 
     prettyname = utils.app_pretty_names[app]
     axs[r, c].set_title(f'{prettyname}', fontsize=6)
 
-    axs[r + 0, c].imshow(sass_heatmap, cmap='hot', interpolation='nearest')
-    axs[r + 0, c].set_xlim(0, sass_heatmap.shape[1])
-    axs[r + 0, c].set_ylim(0, sass_heatmap.shape[0])
+    axs[r + 0, c].imshow(hw_heatmap, cmap='hot', interpolation='nearest')
+    axs[r + 0, c].set_xlim(0, hw_heatmap.shape[1])
+    axs[r + 0, c].set_ylim(0, hw_heatmap.shape[0])
     axs[r + 0, c].set_xticks([])
     axs[r + 0, c].set_yticks([])
-
-    axs[r + 1, c].imshow(hw_heatmap, cmap='hot', interpolation='nearest')
-    axs[r + 1, c].set_xlim(0, hw_heatmap.shape[1])
-    axs[r + 1, c].set_ylim(0, hw_heatmap.shape[0])
-    axs[r + 1, c].set_xticks([])
-    axs[r + 1, c].set_yticks([])
-
-    if c == 0:
-        axs[r + 0, c].set_ylabel('SASS', fontsize=8)
-        axs[r + 1, c].set_ylabel('HW', fontsize=8)
+    axs[r + 0, c].set_xlabel(f'{app_clusters} / {cuml_clusters}', fontsize=6)
 
 
 plt.tight_layout()

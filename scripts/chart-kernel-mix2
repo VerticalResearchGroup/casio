@@ -50,13 +50,16 @@ ordered_kerns.sort(key=lambda x: glb_kernel_frac.get(x, 0), reverse=True)
 kern_idx = {k: i for i, k in enumerate(ordered_kerns)}
 kern_idx['gemm'] = 'mm'
 
+ukerns_80 = set()
+ukerns_90 = set()
+
 for i, app in enumerate(utils.apps):
     batch = utils.get_large_batch_size('a100', app)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
     kernel_frac = {}
     prettyname = utils.app_pretty_names[app]
 
-    print(f'Processing {app}...')
+    # print(f'Processing {app}...')
 
     names, data = utils.read_ncu_raw_file_numpy(
         raw_file, ['gpu__time_duration.sum'])
@@ -82,21 +85,28 @@ for i, app in enumerate(utils.apps):
     ]
 
     idx_80 = 0
+    idx_90 = 0
     cum_frac = 0
     for j, b in enumerate(bars):
         cum_frac += b
-        if cum_frac > 0.8:
-            idx_80 = j
-            break
+        if cum_frac > 0.8 and idx_80 == 0: idx_80 = j
+        if cum_frac > 0.9 and idx_90 == 0: idx_90 = j
 
+    cum_frac = 0
+    for j, k in enumerate(ordered_kerns):
+        if cum_frac < 0.9: ukerns_90.add(k)
+        if cum_frac < 0.8: ukerns_80.add(k)
 
+        cum_frac += kernel_frac.get(k, 0)
 
     xs = np.arange(len(keep_kerns) + 1)
 
     cs = [colors[0] for _ in keep_kerns] + [colors[1]]
 
     for ki, k in enumerate(keep_kerns):
-        if k == 'gemm': cs[ki] = colors[2]
+        if k == 'gemm':
+            cs[ki] = colors[2]
+            print(prettyname, 'gemm', kernel_frac[k])
 
     axs[i].bar(
         xs + 0.5,
@@ -105,6 +115,7 @@ for i, app in enumerate(utils.apps):
     # plt.boxplot(data, labels=keep_kerns + ['other'])
 
     axs[i].axvline(idx_80 + 1.0, color=colors[3], linestyle='--', linewidth=1)
+    axs[i].axvline(idx_90 + 1.0, color=colors[4], linestyle='--', linewidth=1)
 
     # plt.xlabel('Opcode')
     # plt.ylabel('Total Frac. of Normalized App Runtime', fontsize=8)
@@ -123,6 +134,9 @@ for i, app in enumerate(utils.apps):
     axs[i].tick_params(axis='both', labelsize=6)
 
     axs[i].set_xlim(0, len(keep_kerns) + 1)
+
+print('Unique kernels in top 80%:', len(ukerns_80))
+print('Unique kernels in top 90%:', len(ukerns_90))
 
 plt.subplots_adjust(hspace=0.01)
 plt.tight_layout()

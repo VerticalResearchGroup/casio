@@ -8,6 +8,41 @@ from scipy.spatial.distance import squareform
 import numpy as np
 import scipy
 import utils
+import utils.cache
+
+
+@utils.cache.cache_list(float)
+def amdahl_speedup(app, plat, factor, top_n):
+    prettyname = utils.app_pretty_names[app]
+    optrace_file = utils.get_optrace_file_lb(plat, app)
+    if not os.path.exists(optrace_file): return [0]
+
+    trace = utils.read_optrace(optrace_file)
+    labels.append(prettyname)
+
+    unames = set(x.name for x in trace)
+
+    op_times = {
+        name: sum(x.accel_time for x in trace if x.name == name)
+        for name in unames
+    }
+
+    op_times = [(name, time) for name, time in op_times.items()]
+    op_times.sort(key=lambda x: x[1], reverse=True)
+
+    top_n_ops = set(x[0] for x in op_times[:top_n])
+
+    total_time = sum(x.accel_time for x in trace)
+    total_time_speedup = sum(
+        x.accel_time / (factor if x.name in top_n_ops else 1)
+        for x in trace
+    )
+
+    if total_time == 0: return [0]
+
+
+    return [total_time / total_time_speedup]
+
 
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -35,6 +70,9 @@ p100 = []
 v100 = []
 a100 = []
 
+p100_amdahl = []
+v100_amdahl = []
+
 for i, app in enumerate(apps):
     prettyname = utils.app_pretty_names[app]
     labels.append(prettyname)
@@ -48,25 +86,37 @@ for i, app in enumerate(apps):
     v100.append(throughputs['v100'] / throughputs['p100'])
     a100.append(throughputs['a100'] / throughputs['v100'])
 
-    print(f'{prettyname.ljust(15)}: {v100[-1]:.2f} {a100[-1]:.2f}')
+    p100_amdahl += amdahl_speedup(app, 'p100', 10, 3)
+    v100_amdahl += amdahl_speedup(app, 'v100', 10, 3)
 
+    print(f'{prettyname.ljust(15)}: {v100[-1]:.2f} {a100[-1]:.2f} {p100_amdahl[-1]:.2f} {v100_amdahl[-1]:.2f}')
+
+p100_amdahl = np.array(p100_amdahl)
+v100_amdahl = np.array(v100_amdahl)
 p100 = np.array(p100)
 v100 = np.array(v100)
 a100 = np.array(a100)
 labels = np.array(labels)
 
 idxs = v100.argsort()
+p100_amdahl = p100_amdahl[idxs]
+v100_amdahl = v100_amdahl[idxs]
 p100 = p100[idxs]
 v100 = v100[idxs]
 a100 = a100[idxs]
 labels = labels[idxs]
 
+p100_amdahl_nz = p100_amdahl[p100_amdahl > 0]
+v100_amdahl_nz = v100_amdahl[v100_amdahl > 0]
+
+p100_amdahl = np.append(p100_amdahl, scipy.stats.mstats.gmean(p100_amdahl_nz))
+v100_amdahl = np.append(v100_amdahl, scipy.stats.mstats.gmean(v100_amdahl_nz))
 p100 = np.append(p100, scipy.stats.mstats.gmean(p100))
 v100 = np.append(v100, scipy.stats.mstats.gmean(v100))
 a100 = np.append(a100, scipy.stats.mstats.gmean(a100))
 labels = np.append(labels, 'Geo. Mean')
 
-xs = np.arange(len(apps) + 1) * 3
+xs = np.arange(len(apps) + 1) * 4
 
 print(v100)
 print(a100)
@@ -74,26 +124,30 @@ print(a100)
 #plot peak speedups
 axs.axhline(y=v100_p100_speedup, color=colors[0], linestyle='--', linewidth=1, zorder=10)
 axs.axhline(y=a100_v100_speedup, color=colors[1], linestyle='--', linewidth=1, zorder=10)
+axs.axhline(y=1, color='black', linestyle='--', linewidth=1, zorder=10)
 
-axs.axhline(y=v100_p100_mem, color=colors[0], linestyle=':', linewidth=1, zorder=10)
-axs.axhline(y=a100_v100_mem, color=colors[1], linestyle=':', linewidth=1, zorder=10)
+# axs.axhline(y=v100_p100_mem, color=colors[0], linestyle=':', linewidth=1, zorder=10)
+# axs.axhline(y=a100_v100_mem, color=colors[1], linestyle=':', linewidth=1, zorder=10)
 
 
 # axs.bar(xs + 0, p100, width=WIDTH, label='P100')
-axs.bar(xs + 0, v100, width=WIDTH, label='V100 / P100', zorder=100)
-axs.bar(xs + 1, a100, width=WIDTH, label='A100 / V100', zorder=100)
+# axs.bar(xs + 0, p100_amdahl, width=WIDTH, label='V100 Potential', color=colors[3], zorder=10)
+
+axs.bar(xs + 0, v100, width=WIDTH, label='V/P', color=colors[0], zorder=100)
+axs.bar(xs + 1, a100, width=WIDTH, label='A/V', color=colors[1], zorder=100)
+axs.bar(xs + 2, v100_amdahl, width=WIDTH, label='A100 Pot.', color=colors[2], zorder=10)
 
 
 
 plt.xticks(xs + 0.5, labels, rotation=45, ha='right', fontsize=6)
-plt.xlim([-WIDTH / 2, max(xs) + 2.5 - WIDTH])
-plt.ylim([0, 7.5])
+plt.xlim([-WIDTH / 2, max(xs) + 3.5 - WIDTH])
+plt.ylim([0, 8])
 plt.yticks(fontsize=6)
 
 # plt.xlabel('Application', fontsize=8)
 plt.ylabel('Speedup', fontsize=8)
 plt.title('Generational Performance Gains', fontsize=10)
-plt.legend(ncol=2, fontsize=6)
+plt.legend(ncol=3, fontsize=6)
 plt.tight_layout()
 os.makedirs('charts', exist_ok=True)
 plt.savefig('charts/e2e-speedup.pdf')

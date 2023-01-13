@@ -18,12 +18,13 @@ def get_kernels(app, plat):
 
 for plat in utils.plats:
     kernels = get_kernels(app, plat)
-    print(f'{plat}: {len(kernels)} kernels')
     tot_time = sum(k.time_ns for k in kernels)
     gemm_time = sum(k.time_ns for k in kernels if k.is_gemm)
 
-    gemm_knames = set(k.name for k in kernels if k.is_gemm)
+    gemm_knames = list(set(k.name for k in kernels if k.is_gemm))
+    gemm_knames.sort()
 
+    print(f'{plat}: {len(gemm_knames)}/{len(set(k.name for k in kernels))} kernels')
     print(f'    Total Time: {tot_time}')
     print(f'    GEMM Time: {gemm_time} ({gemm_time / tot_time * 100:.2f}%)')
     print()
