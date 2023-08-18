@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+import sys
+import numpy as np
+import utils
+
+
+def get_kernels(app, plat):
+    batch = utils.get_large_batch_size(plat, app)
+    nsys_trace_file = utils.get_nsys_gputrace_file(plat, app, batch)
+    return utils.read_nsys_trace(nsys_trace_file)
+
+for plat in utils.plats:
+    gemm_knames = []
+
+    for app in utils.apps:
+        kernels = get_kernels(app, plat)
+        tot_time = sum(k.time_ns for k in kernels)
+        gemm_time = sum(k.time_ns for k in kernels if k.is_gemm)
+
+        gemm_knames += list(set(k.name for k in kernels if k.is_gemm))
+
+    gemm_knames = set(gemm_knames)
+
+    print(f'{plat}: {len(gemm_knames)} kernels')
+
+

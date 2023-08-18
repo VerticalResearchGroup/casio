@@ -46,7 +46,9 @@ app_pretty_names = {
     'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft': 'SwinV2-L-F',
     'tabnet': 'TabNet',
     'tacotron2': 'Tacotron2',
-    'wavenet': 'WaveNet'
+    'wavenet': 'WaveNet',
+    'resnet50': 'Resnet50',
+    'bert': 'BERT'
 }
 
 plats = ['p100', 'v100', 'a100']

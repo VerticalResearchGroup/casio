@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import sys
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+from matplotlib.patches import Rectangle
+
+import numpy as np
+import scipy
+import utils
+import utils.cache
+import bins
+
+print(f'Col width = {utils.COL_WIDTH}in')
+
+
+fig, ax = plt.subplots(figsize=(utils.COL_WIDTH, 0.5))
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.spines['bottom'].set_visible(False)
+ax.spines['left'].set_visible(False)
+BW = 0.2
+BH = 0.2
+
+def lookup_bin_idx(idx):
+    for k, v in bins.bin_str_to_idx.items():
+        if v == idx:
+            return k
+
+for i in range(18):
+    r, c = 1 - i // 9, i % 9
+
+    ax.add_patch(Rectangle((BW * c, BH * r), BW, BH, color=bins.colors[i]))
+
+    # Add text label
+
+    ax.text(
+        BW * c + BW / 2,
+        BH * r + BH / 2,
+        f'{lookup_bin_idx(i)}',
+        ha='center', va='center', fontsize=10)
+
+
+plt.xticks([])
+plt.yticks([])
+
+plt.xlim(0, BW * 9)
+plt.ylim(0, BH * 2)
+
+plt.tight_layout(pad=0)
+os.makedirs('charts', exist_ok=True)
+plt.savefig('charts/bin-legend.pdf')
+
+
+

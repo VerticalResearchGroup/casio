@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+
+import numpy as np
+import scipy
+import utils
+
+apps = utils.apps
+
+ORDER = 'sm_util'
+
+fig = plt.figure(figsize=(utils.COL_WIDTH, 2.25))
+ax0, ax1 = fig.subplots(1, 2, sharex='col', sharey='row')
+
+ax0.set_title('Per-App.', fontsize=8)
+ax0.set_xlabel('Fraction of Runtime', fontsize=6)
+ax0.set_ylabel('Utilization (%)', fontsize=6)
+
+ax1.set_title('Avg. Across App.', fontsize=8)
+# ax1.set_ylabel('Max Utilization (%)')
+ax1.set_xlabel('Fraction of Runtime', fontsize=6)
+
+runtime_at_util = [[] for _ in range(101)]
+
+objs = []
+for i, app in enumerate(apps):
+    batch = utils.get_large_batch_size('a100', app)
+    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    r, c = i // 4, i % 4
+
+    prettyname = utils.app_pretty_names[app]
+    print(f'Processing {prettyname}...')
+
+    _, data = utils.read_ncu_raw_file_numpy(
+        raw_file,
+        [
+            'gpu__time_duration.sum',
+            'sm__throughput.avg.pct_of_peak_sustained_elapsed',
+            'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
+            'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
+        ])
+
+
+    times = data[:, 0]
+    sm_util = data[:, 1]
+    dram_util = data[:, 2]
+    tensor_util = data[:, 3]
+
+    max_util = np.max(data[:, 1:], axis=1)
+    data = data[max_util.argsort()]
+
+    max_util = np.max(data[:, 1:], axis=1)
+    times = data[:, 0]
+
+    # cutoff = 70
+
+    # for it in range(1, len(times)):
+    #     if max_util[it] > cutoff: break
+
+    xs = np.cumsum(times) / times.sum()
+
+    # for i in range(len(xs)):
+    #     if xs[i] > time_thresh:
+    #         util_at_thresh.append(max_util[i])
+    #         break
+
+
+    # foo.append(1 - xs[it])
+
+    # Fill in runtime_at_util
+    for util in range(101):
+        for i in range(1, len(xs)):
+            if max_util[i] > util: break
+        runtime_at_util[util].append(xs[i - 1])
+
+
+    objs.append(ax0.plot(xs, max_util, label=prettyname, linewidth=1)[0])
+
+def gmean_drop_zeros(xs):
+    xs = [x for x in xs if x > 0]
+    return scipy.stats.gmean(xs)
+
+# runtime_at_util_gm = [
+#     gmean_drop_zeros(runtime_at_util[i]) for i in range(101)
+# ]
+
+runtime_at_util_am = [
+    np.mean(runtime_at_util[i]) for i in range(101)
+]
+
+def plot_intercept(frac, color='red'):
+    cutoff = None
+
+    for i in range(1, 101):
+        if runtime_at_util_am[i] >= frac and cutoff is None: cutoff = i
+
+    ax1.plot([runtime_at_util_am[cutoff], runtime_at_util_am[cutoff]], [0, cutoff], '--', color=color, linewidth=1)
+    ax1.plot([0, runtime_at_util_am[cutoff]], [cutoff, cutoff], '--', color=color, linewidth=1)
+    ax1.text(runtime_at_util_am[cutoff] - 0.5, cutoff + 2, f'({frac:.2f}, {cutoff}%)', color=color, fontsize=6)
+
+
+
+plot_intercept(0.6, color='red')
+plot_intercept(0.7, color='green')
+
+am = ax1.plot(runtime_at_util_am, range(101), linewidth=2)
+
+
+
+print(objs)
+
+plt.tight_layout()
+
+plt.figlegend(
+    handles=objs,
+    loc='lower center',
+    ncol=4,
+    fontsize=6,
+    frameon=False)
+
+ax0.tick_params(axis='both', labelsize=6)
+ax1.tick_params(axis='both', labelsize=6)
+
+ax0.set_ylim(0, 100)
+ax0.set_xlim(0, 1)
+ax1.set_xlim(0, 1)
+
+os.makedirs('charts', exist_ok=True)
+plt.subplots_adjust(bottom=0.35)
+plt.savefig('charts/max-util.pdf')
+
+
+

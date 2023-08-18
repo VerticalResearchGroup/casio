@@ -11,6 +11,8 @@ import utils.cache
 
 apps = utils.apps #[:4]
 
+print(pdist(np.array([[1, 1], [-1, -1]]), 'cosine'))
+
 @utils.cache.cache_pickle
 def get_hw_data(app, plat, batch):
     batch = utils.get_large_batch_size(plat, app)

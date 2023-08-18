@@ -22,10 +22,11 @@ print(f'# colors = {len(colors)}')
 
 plat = sys.argv[1]
 
-# fig = plt.figure()
-fig, ax = plt.subplots(figsize=(utils.COL_WIDTH, 2))
+fig = plt.figure(figsize=(utils.COL_WIDTH, 3.5))
+ax0, ax1 = fig.subplots(2, 1, sharex='col')
 
-labels = []
+labels0 = []
+labels1 = []
 
 def avg_runlen(kstats):
     run_lengths = []
@@ -99,28 +100,90 @@ for i, app in enumerate(utils.apps):
 
     avg, runlens, runbins, gemmlens, isgemm = get_runlens(plat, app)
 
-    labels.append(f'{prettyname} ({avg:.1f})')
+    labels0.append(f'{prettyname} ({avg:.1f})')
+    labels1.append(f'{prettyname}')
 
     ti = 0
     for bin, rl in zip(runbins, runlens):
         bin_idx = bins.bin_str_to_idx[bin]
-        ax.add_patch(Rectangle((ti, i*4), rl, 3, lw=1, facecolor=bins.colors[bin_idx]))
+        ax0.add_patch(Rectangle((ti, i*4), rl, 3, lw=1, facecolor=bins.colors[bin_idx]))
+        # if bin is large enough, add bin label as text
+
         ti += rl
 
     ti = 0
     for gemm, rl in zip(isgemm, gemmlens):
-        if gemm: ax.add_patch(Rectangle((ti, i*4), rl, 0.5, lw=1, facecolor='#000000'))
+        if gemm: ax0.add_patch(Rectangle((ti, i*4), rl, 0.5, lw=1, facecolor='#000000'))
+        ti += rl
+
+    sorted_idxs = runbins.argsort()
+
+    runlens = runlens[sorted_idxs]
+    runbins = runbins[sorted_idxs]
+
+    ti = 0
+
+    gen = zip(runbins, runlens)
+
+    cur_bin, cur_rl = next(gen)
+    cur_bin_idx = bins.bin_str_to_idx[cur_bin]
+
+    new_runbins = []
+    new_runlens = []
+
+    for bin, rl in gen:
+        bin_idx = bins.bin_str_to_idx[bin]
+
+        if bin_idx == cur_bin_idx:
+            cur_rl += rl
+
+        else:
+            new_runbins.append(cur_bin)
+            new_runlens.append(cur_rl)
+            ti += cur_rl
+            cur_bin = bin
+            cur_bin_idx = bin_idx
+            cur_rl = rl
+
+    new_runbins.append(cur_bin)
+    new_runlens.append(cur_rl)
+
+    new_runbins = np.array(new_runbins)
+    new_runlens = np.array(new_runlens)
+
+    idxs = new_runlens.argsort()[::-1]
+    new_runbins = new_runbins[idxs]
+    new_runlens = new_runlens[idxs]
+
+    print(new_runlens.sum(), new_runbins, new_runlens)
+
+    ti = 0
+    for bin, rl in zip(new_runbins, new_runlens):
+        bin_idx = bins.bin_str_to_idx[bin]
+        print('    ', bin, rl, bin_idx)
+        ax1.add_patch(Rectangle((ti, i*4), rl, 3, lw=1, facecolor=bins.colors[bin_idx]))
+        if rl > 0.08:
+            ax1.text(ti + rl / 2, i*4 + 1.25, bin, ha='center', va='center', fontsize=6)
         ti += rl
 
 
-plt.xlabel('Fraction of Time', fontsize=6)
-# plt.ylabel('Application', fontsize=8)
-plt.yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels, fontsize=6)
-plt.xticks(fontsize=6)
-plt.title('Application Snapshots', fontsize=8)
-plt.xlim(0, 1.0)
-plt.ylim(0, 4 * len(utils.apps) - 1)
-# plt.legend(ncol=1, fontsize=6)
+
+
+ax0.set_title('(a) Chronological Order', fontsize=8)
+ax0.set_yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels0, fontsize=6)
+ax0.tick_params(axis='both', labelsize=6)
+
+ax0.set_xlim(0, 1.0)
+ax0.set_ylim(0, 4 * len(utils.apps) - 1)
+
+ax1.set_title('(b) Grouped by State', fontsize=8)
+ax1.set_xlabel('Fraction of Time', fontsize=6)
+ax1.set_yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels1, fontsize=6)
+ax1.tick_params(axis='both', labelsize=6)
+
+ax1.set_xlim(0, 1.0)
+ax1.set_ylim(0, 4 * len(utils.apps) - 1)
+
 plt.tight_layout(pad=0)
 os.makedirs('charts', exist_ok=True)
 plt.savefig('charts/app-snap.pdf')

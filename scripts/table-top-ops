@@ -43,8 +43,8 @@ for app in utils.apps:
     all_unique_ops = all_unique_ops.union(unqiue_op_names)
 
     prettyname = utils.app_pretty_names[app].replace('_', '\\_')
-    print(f'\\multicolumn{{4}}{{c}}{{\\textbf{{{prettyname} ({len(unqiue_op_names)} / {len(all_unique_ops)} uniq.)}}}} \\\\')
-    print('\\hline')
+    # print(f'\\multicolumn{{4}}{{c}}{{\\textbf{{{prettyname} ({len(unqiue_op_names)} / {len(all_unique_ops)} uniq.)}}}} \\\\')
+    # print('\\hline')
 
     def runtime_contrib(opname, plat):
         total_time = sum(op.accel_time for op in traces[plat])
@@ -66,6 +66,9 @@ for app in utils.apps:
         contrib[plat].sort(key=lambda x: x[1], reverse=True)
 
         for opname, frac in contrib[plat][:3]: top_ops.add(opname)
+
+        top_3_frac = sum(frac for opname, frac in contrib[plat][:3])
+        if plat == 'a100': print(f'{app}, {top_3_frac:.2f}')
 
         n80 = 0
         tot_frac = 0
@@ -110,14 +113,14 @@ for app in utils.apps:
 
     for opname, p100, v100, a100 in combined_top5:
         opname_str = opname.replace('_', '\\_')
-        print(f'{opname_str} & {p100*100:.2f}\\% & {v100*100:.2f}\\% & {a100*100:.2f}\\% \\\\')
+        # print(f'{opname_str} & {p100*100:.2f}\\% & {v100*100:.2f}\\% & {a100*100:.2f}\\% \\\\')
 
 
 
-    print(f'Other & {other_p100_frac*100:.2f}\\% & {other_v100_frac*100:.2f}\\% & {other_a100_frac*100:.2f}\\% \\\\')
-    print('\\hline')
+#     print(f'Other & {other_p100_frac*100:.2f}\\% & {other_v100_frac*100:.2f}\\% & {other_a100_frac*100:.2f}\\% \\\\')
+#     print('\\hline')
 
-print('\\end{tabular}')
+# print('\\end{tabular}')
 
 for app in utils.apps:
     prettyname = utils.app_pretty_names[app]

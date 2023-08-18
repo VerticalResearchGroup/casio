@@ -14,12 +14,199 @@ def shorten_string(s, lim=15):
         return s[:lim - 3] + '...'
     return s
 
-keep = 49
+
+float_opcodes = {
+    'FADD',
+    'FADD32I',
+    'FCHK',
+    'FFMA32I',
+    'FFMA',
+    'FMNMX',
+    'FMUL',
+    'FMUL32I',
+    'FSEL',
+    'FSET',
+    'FSWZADD',
+    'MUFU',
+    'HADD2',
+    'HADD2_32I',
+    'HFMA2',
+    'HFMA2_32I',
+    'HMNMX2',
+    'HMUL2',
+    'HMUL2_32I',
+    'HSET2',
+    'HSETP2',
+    'DADD',
+    'DFMA',
+    'DMUL',
+    'DSETP',
+    'RED',
+    'REDUX'
+}
+
+int_opcodes = {
+    'IMAD',
+    'IADD3',
+    'UIMAD',
+    'UIADD3',
+    'IMNMX',
+    'IABS',
+    'SGXT',
+    'USGXT',
+    'BMSK',
+    'BREV',
+    'FLO',
+    'UFLO',
+    'POPC'
+}
+
+logic_opcodes = {
+    'LOP3',
+    'SHF',
+    'USHF',
+    'ULOP3',
+    'ULEA',
+    'NOP'
+}
+
+tensor_opcodes = {
+    'HMMA',
+}
+
+move_opcodes = {
+    'MOV',
+    'S2R',
+    'UMOV',
+    'SEL',
+    'USEL',
+    'CS2R',
+    'R2P',
+    'P2R',
+    'PRMT',
+    'VOTE',
+    'VOTEU',
+    'R2UR',
+    'S2UR',
+    'SHFL'
+}
+
+load_opcodes = {
+    'LD',
+    'LDC',
+    'LDG',
+    'LEA',
+    'LDS',
+    'ULDC',
+    'LDSM',
+    'LDGSTS',
+    'LDL'
+}
+
+store_opcodes = {
+    'STS',
+    'STG',
+    'ST',
+    'STL',
+}
+
+convert_opcodes = {
+    'F2F',
+    'F2I',
+    'I2F',
+    'I2I',
+    'I2IP',
+    'I2FP',
+    'F2IP',
+    'FRND',
+    'F2FP'
+}
+
+ctrl_opcodes = {
+    'PLOP3',
+    'UISETP',
+    'FSETP',
+    'ISETP',
+    'ACQBULK',
+    'BMOV',
+    'BPT',
+    'BRA',
+    'BREAK',
+    'BRX',
+    'BRXU',
+    'BSSY',
+    'BSYNC',
+    'CALL',
+    'CGAERRBAR',
+    'ELECT',
+    'ENDCOLLECTIVE',
+    'EXIT',
+    'JMP',
+    'JMX',
+    'JMXU',
+    'KILL',
+    'NANOSLEEP',
+    'PREEXIT',
+    'RET',
+    'RPCMOV',
+    'WARPSYNC',
+    'YIELD',
+    'LEPC'
+}
+
+sync_opcodes = {
+    'LDGDEPBAR',
+    'DEPBAR',
+    'BAR',
+    'B2R',
+    'MEMBAR',
+    'ATOMG',
+    'ATOM',
+    'ATOMS',
+    'ERRBAR',
+}
+
+cache_opcodes = {
+    'CCTL'
+}
+
+# ST*
+# SYNC*
+# TENSOR*
+# CTRL*
+# CVT*
+# FLOAT*
+# LOGIC*
+# MOVE*
+# INT*
+# LD*
+
 
 filter_by = sys.argv[1]
 
+def group_opcode(opcode):
+    opcode = opcode.split('.')[0]
+
+    # if opcode in float_opcodes: return 'FLOAT*'
+    # if opcode in ctrl_opcodes: return 'CTRL*'
+    # if opcode in convert_opcodes: return 'CVT*'
+    # if opcode in int_opcodes: return 'INT*'
+    # if opcode in logic_opcodes: return 'LOGIC*'
+    # if opcode in tensor_opcodes: return 'TENSOR*'
+    # if opcode in move_opcodes: return 'MOVE*'
+    # if opcode in load_opcodes: return 'LD*'
+    # if opcode in store_opcodes: return 'ST*'
+    # if opcode in sync_opcodes: return 'SYNC*'
+    # if opcode in cache_opcodes: return 'CACHE*'
+
+    return opcode
+
 
 @utils.cache.cache_pickle
+def parse_ncu_sass_cached(sass_file):
+    return utils.parse_ncu_sass(sass_file)
+
+# @utils.cache.cache_pickle
 def get_sass_data():
     all_opcodes = set()
     opcode_counts = {}
@@ -30,8 +217,9 @@ def get_sass_data():
         sass_file = utils.get_ncu_sass_file('a100', app, batch)
 
         print(f'Processing {app}...')
-        kernels = utils.parse_ncu_sass(sass_file)
+        kernels = parse_ncu_sass_cached(sass_file)
         opcodes = utils.ncu_sass_opcodes(kernels)
+        opcodes = set(group_opcode(opcode) for opcode in opcodes)
 
         if filter_by == 'gemm':
             kernels = [k for k in kernels if utils.is_gemm(k.name)]
@@ -44,9 +232,9 @@ def get_sass_data():
             # if utils.is_gemm(k.name):
             max_inst[k.name] = max(max_inst.get(k.name, 0), len(k.trace))
             for i in k.trace:
-                if i.opcode not in opcode_counts:
-                    opcode_counts[i.opcode] = 0
-                opcode_counts[i.opcode] += i.thread_inst_exec / total_insts
+                if group_opcode(i.opcode) not in opcode_counts:
+                    opcode_counts[group_opcode(i.opcode)] = 0
+                opcode_counts[group_opcode(i.opcode)] += i.thread_inst_exec / total_insts
 
         all_opcodes = all_opcodes.union(opcodes)
         traces[app] = kernels
@@ -55,55 +243,114 @@ def get_sass_data():
 
 all_opcodes, opcode_counts, traces, max_inst = get_sass_data()
 
-ordered_opcodes = list(all_opcodes)
-ordered_opcodes.sort(key=lambda x: opcode_counts.get(x, 0), reverse=True)
+for opcode in sorted(list(all_opcodes)):
+    print(opcode)
+
 print(f'Found {len(all_opcodes)} unique opcodes')
 
 print('Total Static SASS insts:', sum(max_inst.values()))
 
-plt.figure(figsize=(utils.TEXT_WIDTH, 2.5))
-plt.title('SASS Opcode Mix', fontsize=8)
+plt.figure(figsize=(utils.COL_WIDTH, 1.75))
+# plt.title('SASS Opcode Mix', fontsize=8)
+# ax = fig.subplots(1, 1)
 
-xs = np.arange(len(all_opcodes)+1)[:keep + 1]
+xs = np.arange(len(all_opcodes)) #[:keep + 1]
 
-bra_i = ordered_opcodes.index('BRA')
-bra_contrib = []
 
-for app, trace in traces.items():
+ks = [
+    k
+    for _, t in traces.items()
+    for k in t
+]
+
+for k in ks:
+    assert type(k) == utils.Kernel
+
+
+# print(ks)
+new_traces = {
+    'GEMM': list(filter(lambda k: utils.is_gemm(k.name), ks)),
+    'Non-GEMM': list(filter(lambda k: not utils.is_gemm(k.name), ks)),
+}
+
+gemm_opcode_counts = {}
+for k in new_traces['GEMM']:
+    for i in k.trace:
+        gemm_opcode_counts[group_opcode(i.opcode)] = \
+            gemm_opcode_counts.get(group_opcode(i.opcode), 0) + i.thread_inst_exec
+
+ordered_opcodes = list(all_opcodes)
+ordered_opcodes.sort(key=lambda x: gemm_opcode_counts.get(x, 0), reverse=True)
+
+
+plotted_data = {}
+
+for app, trace in new_traces.items():
     app_opcode_counts = {opcode: 0 for opcode in all_opcodes}
-    prettyname = utils.app_pretty_names[app]
+    prettyname = app #utils.app_pretty_names[app]
 
     for k in trace:
         for i in k.trace:
-            app_opcode_counts[i.opcode] += i.thread_inst_exec
+            app_opcode_counts[group_opcode(i.opcode)] += i.thread_inst_exec
 
 
     app_opcode_counts = np.array([app_opcode_counts.get(opcode, 0) for opcode in ordered_opcodes])
     total_insts = np.sum(app_opcode_counts)
-    bra_contrib.append(app_opcode_counts[bra_i] / total_insts)
-    cum_app_opcode_counts = np.cumsum(app_opcode_counts)[:keep]
-    cum_app_opcode_counts = np.append(cum_app_opcode_counts, total_insts)
+    # bra_contrib.append(app_opcode_counts[bra_i] / total_insts)
+    cum_app_opcode_counts = np.cumsum(app_opcode_counts) #[:keep]
+    # cum_app_opcode_counts = np.append(cum_app_opcode_counts, total_insts)
 
-    plt.plot(xs, cum_app_opcode_counts / total_insts, label=prettyname)
+    marker = '^' if app == 'GEMM' else 'o'
+
+    print(app, cum_app_opcode_counts / total_insts)
+    plotted_data[app] = cum_app_opcode_counts / total_insts
+
+    plt.plot(
+        xs,
+        cum_app_opcode_counts / total_insts,
+        label=prettyname,
+        marker=marker,
+        markersize=3,
+        linewidth=1)
 
 plt.legend(ncol=3, fontsize=6)
-# plt.xlabel('Opcode')
-plt.ylabel('Cum. Frac. of Instructions', fontsize=8)
+# plt.figlegend(ncol=4, fontsize=6, loc='lower center', frameon=False)
 
-bra_contrib = np.array(bra_contrib)
-print('BRA contrib:', np.mean(bra_contrib), np.std(bra_contrib))
-print('BRA contrib:', np.min(bra_contrib), np.max(bra_contrib))
+# plt.xlabel('Opcode')
+plt.ylabel('Cum. Frac. of\nInstructions', fontsize=8)
+
+# bra_contrib = np.array(bra_contrib)
+# print('BRA contrib:', np.mean(bra_contrib), np.std(bra_contrib))
+# print('BRA contrib:', np.min(bra_contrib), np.max(bra_contrib))
+
+# Every bin past "LOGIC*" is less than 2.7% of total fractions
+# copilot please add text for this
+plt.text(6.5, 0.5, 'Every bin past "LOGIC*"\nis less than 2.7% of\ntotal instructions', fontsize=6)
+
+def plot_yintercept(x, y, color):
+    plt.plot([0, x], [y, y], color=color, linestyle='--', linewidth=0.5, zorder=-1)
+    # plt.text(x + 0.1, y, label, color=color, fontsize=6)
+
+plot_yintercept(1, plotted_data['GEMM'][1], 'gray')
+plot_yintercept(2, plotted_data['GEMM'][2], 'gray')
+plot_yintercept(3, plotted_data['GEMM'][3], 'gray')
+plot_yintercept(4, plotted_data['GEMM'][4], 'gray')
+
 
 plt.xticks(
     xs,
-    list(map(shorten_string, ordered_opcodes))[:keep] + ['OTHER'],
+    list(map(shorten_string, ordered_opcodes)), #[:keep] + ['OTHER'],
     rotation=90,
     fontsize=6)
 
 plt.yticks(fontsize=6)
 
-plt.xlim(0, keep + 1)
+plt.xlim(0, len(all_opcodes))
+plt.ylim(0, 1.1)
+
+plt.yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
 
 plt.tight_layout()
+# plt.subplots_adjust(bottom=0.35)
 os.makedirs('charts', exist_ok=True)
 plt.savefig(f'charts/opcode-mix-{filter_by}.pdf')

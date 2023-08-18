@@ -6,7 +6,49 @@ from scipy.spatial.distance import pdist
 from scipy.spatial.distance import squareform
 import sys
 import numpy as np
+import random
 import utils
+
+apps = [
+    'meshgraphnets-cfd',
+    'meshgraphnets-cloth',
+    'muzero',
+    'nerf',
+    # 'pinn-ac',
+    # 'pinn-kdv',
+    'pinn-navier-stokes',
+    'pinn-schrodinger',
+    'qdtrack',
+    'swin-swinv2_base_patch4_window12_192_22k',
+    # 'swin-swinv2_base_patch4_window16_256',
+    # 'swin-swinv2_large_patch4_window12_192_22k',
+    'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
+    'tabnet',
+    'tacotron2',
+    'wavenet',
+    # 'resnet50',
+    # 'bert'
+]
+
+data = """
+meshgraphnets-cfd, 0.73
+meshgraphnets-cloth, 0.79
+muzero, 0.73
+pinn-navier-stokes, 0.86
+pinn-schrodinger, 0.75
+qdtrack, 0.62
+swin-swinv2_base_patch4_window12_192_22k, 0.51
+swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft, 0.55
+tabnet, 0.48
+tacotron2, 0.70
+wavenet, 0.94
+"""
+
+top_3_fracs = {
+    l.split(',')[0]: float(l.split(',')[1])
+    for l in data.strip().split('\n')
+}
+print(top_3_fracs)
 
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -21,11 +63,11 @@ keep = 30
 
 
 fig = plt.figure(figsize=(utils.COL_WIDTH, 8.5))
-axs = fig.subplots(len(utils.apps), 1)
+axs = fig.subplots(len(apps), 1)
 
 glb_kernel_frac = {}
 
-for i, app in enumerate(utils.apps):
+for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('a100', app)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
     kernel_frac = {}
@@ -53,10 +95,14 @@ kern_idx['gemm'] = 'mm'
 ukerns_80 = set()
 ukerns_90 = set()
 
-for i, app in enumerate(utils.apps):
+all_nkern_top_3_nongemm = set()
+all_nkern_top_3_gemm = set()
+
+for i, app in enumerate(apps):
     batch = utils.get_large_batch_size('a100', app)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
     kernel_frac = {}
+    all_kernel_frac = {}
     prettyname = utils.app_pretty_names[app]
 
     # print(f'Processing {app}...')
@@ -66,8 +112,15 @@ for i, app in enumerate(utils.apps):
 
     tt = data[:, 0].sum()
 
+    ugemms = set()
+
     for ki, name in enumerate(names):
-        if utils.is_gemm(name): name = 'gemm'
+        if name not in all_kernel_frac: all_kernel_frac[name] = 0
+        all_kernel_frac[name] += data[ki, 0] / tt
+
+        if utils.is_gemm(name):
+            ugemms.add(name)
+            name = 'gemm'
 
         if name not in kernel_frac: kernel_frac[name] = 0
         kernel_frac[name] += data[ki, 0] / tt
@@ -77,6 +130,32 @@ for i, app in enumerate(utils.apps):
     ordered_kerns.sort(key=lambda x: kernel_frac.get(x, 0), reverse=True)
     keep_kerns = ordered_kerns[:keep]
     other_kerns = ordered_kerns[keep:]
+
+    if app != 'nerf':
+
+        ngemm_this_app = len(ugemms)
+        nngemm_this_app = 0
+        all_nkern_top_3_gemm |= ugemms
+        foo = kernel_frac.copy()
+        foo.pop('gemm', 0)
+
+        cum_frac = kernel_frac['gemm']
+
+        while cum_frac < top_3_fracs[app]:
+            k = max(foo, key=foo.get)
+
+            # k = random.choice(list(foo.keys()))
+            cum_frac += foo.pop(k, None)
+
+            if k in ugemms:
+                ngemm_this_app += 1
+                all_nkern_top_3_gemm.add(k)
+            else:
+                nngemm_this_app += 1
+                all_nkern_top_3_nongemm.add(k)
+            # del foo[k]
+
+        print(f'{app}: {ngemm_this_app} gemm, {nngemm_this_app} non-gemm')
 
     bars = [
         kernel_frac.get(k, 0) for k in keep_kerns
@@ -106,7 +185,7 @@ for i, app in enumerate(utils.apps):
     for ki, k in enumerate(keep_kerns):
         if k == 'gemm':
             cs[ki] = colors[2]
-            print(prettyname, 'gemm', kernel_frac[k])
+            # print(prettyname, 'gemm', kernel_frac[k])
 
     axs[i].bar(
         xs + 0.5,
@@ -135,10 +214,20 @@ for i, app in enumerate(utils.apps):
 
     axs[i].set_xlim(0, len(keep_kerns) + 1)
 
+    tot_time = sum(v for k, v in kernel_frac.items())
+    gemm_time = kernel_frac.get('gemm')
+
+    h100_gemm = 1 / (1 - kernel_frac['gemm'] + kernel_frac['gemm'] / 2.5)
+    # print(f'{h100_gemm}')
+
+
+print('(Top 3 cov) non-gemm:', len(all_nkern_top_3_nongemm))
+print('(Top 3 cov) gemm:', len(all_nkern_top_3_gemm))
+
 print('Unique kernels in top 80%:', len(ukerns_80))
 print('Unique kernels in top 90%:', len(ukerns_90))
 
-plt.subplots_adjust(hspace=0.01)
+plt.subplots_adjust(hspace=0, wspace=0)
 plt.tight_layout()
 os.makedirs('charts', exist_ok=True)
 plt.savefig(f'charts/kernel-mix2.pdf')

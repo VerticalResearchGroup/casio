@@ -12,7 +12,7 @@ apps = utils.apps
 
 ORDER = 'sm_util'
 
-fig = plt.figure(figsize=(utils.TEXT_WIDTH, 3))
+fig = plt.figure(figsize=(utils.TEXT_WIDTH, 2.65))
 axs = fig.subplots(len(apps)//4, 5, sharex='col')
 
 # plt.xticks(fontsize=6)
@@ -34,6 +34,8 @@ for i, app in enumerate(apps):
             'gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed',
             'sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed'
         ])
+
+    chrono_data = data.copy()
 
     if ORDER == 'sm_util':
         # Sort data by sm utilization
@@ -71,12 +73,18 @@ for i, app in enumerate(apps):
     # axs[r, c].semilogy()
 
     if c == 3:
-        axs[r, c+1].set_title(f'{prettyname} (Zoomed)', fontsize=8)
-        axs[r, c+1].plot(xs, sm_util, label='SM Utilization', linewidth=1, marker='.')
-        axs[r, c+1].plot(xs, avg_dram_util, label='Avg. DRAM Utilization', linewidth=1, linestyle='--', marker='.')
-        axs[r, c+1].plot(xs, avg_tensor_util, label='Avg. Tensor Utilization', linewidth=1, linestyle='--', marker='.')
+        axs[r, c+1].set_title(f'{prettyname} (Chrono.)', fontsize=8)
+
+        chrono_sm_util = chrono_data[:, 1]
+        chrono_dram_util = chrono_data[:, 2]
+        chrono_tensor_util = chrono_data[:, 3]
+
+        axs[r, c+1].plot(xs, chrono_sm_util, label='SM Utilization', linewidth=0.2)
+        axs[r, c+1].plot(xs, chrono_dram_util, label='Avg. DRAM Utilization', linewidth=0.2)
+        axs[r, c+1].plot(xs, chrono_tensor_util, label='Avg. Tensor Utilization', linewidth=0.2)
         axs[r, c+1].tick_params(axis='both', labelsize=6)
-        axs[r, c+1].set_xlim([0.6, 0.65])
+        axs[r, c+1].set_xlim([0.5, 0.6])
+        axs[r, c+1].set_xticks([0.5, 0.55, 0.6])
 
 
 ax = fig.add_subplot(111, frameon=False)

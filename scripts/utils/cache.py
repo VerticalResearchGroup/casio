@@ -29,11 +29,14 @@ def cache_list(etype):
         return wrapper
     return decorator
 
+def sanitize(s):
+    return s.replace('/', '_').replace('.', '_')
+
 def cache_pickle(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         argss = '_'.join(str(arg) for arg in args)
-        filename = f'cache/{func.__name__}.{argss}.cache.pkl'
+        filename = f'cache/{func.__name__}.{sanitize(argss)}.cache.pkl'
         if os.path.exists(filename):
             # print(f'Loading {func.__name__} from cache')
             with open(filename, 'rb') as f:
