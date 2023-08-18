@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+# Example:
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization/batchnorm/sub,  opname: Sub,  meta: "[54],[54]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization/batchnorm/add_1,  opname: AddV2,  meta: "[4,54],[54]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/Transform_f1/MatMul,  opname: MatMul,  meta: "0,[4,54],0,[54,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/Reshape,  opname: Reshape,  meta: "",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/moments/mean,  opname: Mean,  meta: "data=[4,1,8],axes=[1],out=[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/moments/SquaredDifference,  opname: SquaredDifference,  meta: "[4,1,8],[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/moments/variance,  opname: Mean,  meta: "data=[4,1,8],axes=[1],out=[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/batchnorm/add,  opname: AddV2,  meta: "[1,1,8],[]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/batchnorm/Rsqrt,  opname: Rsqrt,  meta: "[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/batchnorm/mul,  opname: Mul,  meta: "[1,1,8],[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/batchnorm/mul_1,  opname: Mul,  meta: "[4,1,8],[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+# - { tid: 197, rid: 0,  rname: Encoder/batch_normalization_1/batchnorm/mul_2,  opname: Mul,  meta: "[1,1,8],[1,1,8]",  total: 0,  fp32: 0,  non-fp32: 0,  stats: {}}
+
+# Want to output:
+# Matmul(4, 8, 54)
+
+import sys
+import yaml
+import re
+
+import fileinput
+
+shape_regex = r'(\d+),\[([\d,]+)\],(\d+),\[([\d,]+)\]'
+seen = set()
+
+# ss  << dimensions.batch
+#     << "," << dimensions.in_depth
+#     << "," << dimensions.out_depth
+#     << "," << dimensions.input_rows
+#     << "," << dimensions.input_cols
+#     << "," << dimensions.filter_rows
+#     << "," << dimensions.filter_cols
+#     << "," << dimensions.stride_rows
+#     << "," << dimensions.stride_cols
+#     << "," << dimensions.dilation_rows
+#     << "," << dimensions.dilation_cols
+#     << "," << params_.padding;
+
+# for (int i = 0; i < params_.explicit_paddings.size(); i++) {
+#   ss << "," << params_.explicit_paddings[i];
+# }
+
+def parse_line(line):
+    yd = yaml.safe_load(line)[0]
+    global seen
+
+    if yd['opname'] == 'MatMul':
+        m = re.match(shape_regex, yd['meta'])
+        trans_a = int(m.group(1)) == 1
+        shape_a = list(map(int, m.group(2).split(',')))
+        trans_b = int(m.group(3)) == 1
+        shape_b = list(map(int, m.group(4).split(',')))
+
+        if not trans_a:
+            M = shape_a[0]
+            K = shape_a[1]
+        else:
+            M = shape_a[1]
+            K = shape_a[0]
+
+        if not trans_b:
+            N = shape_b[1]
+            assert shape_b[0] == K, yd['meta']
+        else:
+            N = shape_b[0]
+            assert shape_b[1] == K, yd['meta']
+
+        trans_str = ('T' if trans_a else 'N') + ('T' if trans_b else 'N')
+
+        if (M, N, K, trans_a, trans_b) in seen: return
+        seen.add((M, N, K, trans_a, trans_b))
+        print(f'Matmul({M}, {N}, {K}, {trans_str})')
+
+    if yd['opname'] == 'Conv2D':
+        [B, C, K, H, W, R, S, Sh, Sw, Dh, Dw, *_] = map(int, yd['meta'].split(','))
+        P = (H - R) // Sh + 1
+        Q = (W - S) // Sw + 1
+        print(f'Conv2D({B}, {C}, {K}, {H}, {W}, {P}, {Q}, {R}, {S}, {Sh})')
+
+
+for line in fileinput.input():
+    parse_line(line)
