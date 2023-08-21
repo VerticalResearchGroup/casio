@@ -5,6 +5,14 @@ bert-large:
     - Matmul(B * 16 * 512, 512, 64, NT)
     - Matmul(B * 16 * 512, 64, 512, NT)
 
+gpt3:
+    - Linear(B * 2048, 36864, 12288)
+    - Matmul(B * 96 * 2048, 2048, 128, NT)
+    - Matmul(B * 96 * 2048, 128, 2048, NT)
+    - Linear(B * 2048, 12288, 12288)
+    - Linear(B * 2048, 49152, 12288)
+    - Linear(B * 2048, 12288, 49152)
+
 mgn-cloth:
     - Linear(B * 1024, 128, 256)
     - Linear(B * 1024, 128, 128)
