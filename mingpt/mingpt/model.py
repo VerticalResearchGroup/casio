@@ -310,3 +310,44 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+
+class GPT3SingleLayer(nn.Module):
+    """ GPT3 Language Model """
+
+    @staticmethod
+    def get_default_config():
+        C = CN()
+        # either model_type or (n_layer, n_head, n_embd) must be given in the config
+        C.model_type = 'gpt'
+        C.n_layer = None
+        C.n_head = None
+        C.n_embd =  None
+        # these options must be filled in externally
+        C.vocab_size = None
+        C.block_size = None
+        # dropout hyperparameters
+        C.embd_pdrop = 0.1
+        C.resid_pdrop = 0.1
+        C.attn_pdrop = 0.1
+        return C
+
+    def __init__(self, config):
+        super().__init__()
+        self.block_size = config.block_size
+        config.merge_from_dict(dict(n_layer=1, n_head=96, n_embd=12288))
+
+        self.transformer = nn.ModuleDict(dict(
+            h = nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
+        ))
+
+        # report number of parameters (note we don't count the decoder parameters in lm_head)
+        n_params = sum(p.numel() for p in self.transformer.parameters())
+        print("number of parameters: %.2fM" % (n_params/1e6,))
+
+
+    def forward(self, x):
+        for block in self.transformer.h:
+            x = block(x)
+
+        return x
+

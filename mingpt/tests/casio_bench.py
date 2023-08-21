@@ -9,7 +9,7 @@ from torch_wrapper import benchmark_wrapper
 
 from mingpt.model import GPT
 
-from mingpt.model import GPT
+from mingpt.model import GPT3SingleLayer
 from mingpt.trainer import Trainer
 from mingpt.utils import set_seed, setup_logging, CfgNode as CN
 
@@ -26,7 +26,8 @@ def get_config():
     C.system.seed = 3407
     C.system.work_dir = './out/gpt3'
 
-    C.data = FakeDataset.get_default_config()
+    C.data = CN()
+    C.data.block_size = 2048
 
     C.model = GPT.get_default_config()
     C.model.model_type = 'gpt3-1l'
@@ -36,36 +37,6 @@ def get_config():
 
     return C
 
-# -----------------------------------------------------------------------------
-
-class FakeDataset(Dataset):
-    """
-    Emits batches of characters
-    """
-
-    @staticmethod
-    def get_default_config():
-        C = CN()
-        C.block_size = 2048
-        return C
-
-    def __init__(self, config):
-        self.config = config
-        self.vocab_size = 1
-
-    def get_vocab_size(self):
-        return self.vocab_size
-
-    def get_block_size(self):
-        return self.config.block_size
-
-    def __len__(self):
-        return 1
-
-    def __getitem__(self, idx):
-        x = torch.randint(0, 1, (2048,), dtype=torch.long)
-        y = torch.randint(0, 1, (2048,), dtype=torch.long)
-        return x, y
 
 # -----------------------------------------------------------------------------
 
@@ -78,45 +49,26 @@ if __name__ == '__main__':
     setup_logging(config)
     set_seed(config.system.seed)
 
-    train_dataset = FakeDataset(config.data)
+    config.model.block_size = config.data.block_size = 2048
 
-    # construct the model
-    config.model.vocab_size = train_dataset.get_vocab_size()
-    config.model.block_size = train_dataset.get_block_size()
 
     device = torch.device(params.devname)
     dtype = torch.float16
-
-    model = GPT(config.model).to(device).to(dtype)
+    model = GPT3SingleLayer(config.model).to(device).to(dtype)
 
     # setup the optimizer
-    optimizer = model.configure_optimizers(config.trainer)
-
-    # setup the dataloader
-    train_loader = DataLoader(
-        train_dataset,
-        sampler=torch.utils.data.RandomSampler(train_dataset, replacement=True, num_samples=int(1e10)),
-        shuffle=False,
-        pin_memory=True,
-        batch_size=params.bs,
-        num_workers=0,
-    )
-
+    opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
     model.train()
 
-    data_iter = iter(train_loader)
+    x = torch.randn((params.bs, 2048, config.model.n_embd), device=device, dtype=dtype)
 
-    batch = next(data_iter)
-    batch = [t.to(device) for t in batch]
 
     def roi():
-        x, y = batch
-        logits, loss = model(x, y)
+        loss = model(x).sum()
         model.zero_grad(set_to_none=True)
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), config.trainer.grad_norm_clip)
-        optimizer.step()
+        opt.step()
 
 
     benchmark_wrapper('gpt3', roi)
