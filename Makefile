@@ -16,6 +16,9 @@ dirs:
 ALL_APPS= \
 	meshgraphnets-cfd \
 	meshgraphnets-cloth \
+	gpt3 \
+	gpt3-attn \
+	gpt3-ffn \
 	muzero \
 	nerf \
 	pinn-ac \
@@ -34,6 +37,9 @@ ALL_APPS= \
 TRACE_APPS= \
 	meshgraphnets-cfd \
 	meshgraphnets-cloth \
+	gpt3 \
+	gpt3-attn \
+	gpt3-ffn \
 	muzero \
 	pinn-ac \
 	pinn-kdv \
