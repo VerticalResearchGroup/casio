@@ -72,6 +72,22 @@ def matmul(input, other, orig=None):
 
     return out
 
+@monky_patch_torch_func(torch.mm)
+def mm(input, mat2, orig=None):
+    out = orig(input, mat2)
+
+    # print(input.shape, other.shape)
+
+    M = np.prod(input.shape[:-1])
+    K = input.shape[-1]
+    N = mat2.shape[-1]
+
+
+    with open('gemms.txt', 'a') as f:
+        print(f'Matmul({M}, {N}, {K})', file=f)
+
+    return out
+
 @monky_patch_torch_func(torch.bmm)
 def bmm(input, mat2, orig=None):
     out = orig(input, mat2)
@@ -84,3 +100,20 @@ def bmm(input, mat2, orig=None):
     with open('gemms.txt', 'a') as f:
         print(f'BatchMatmul({L}, {M}, {N}, {K})', file=f)
     return out
+
+print(f'Patching Tensor.__matmul__')
+orig_tensor_matmul = torch.Tensor.__matmul__
+def tensor_matmul(self, other):
+    global orig_tensor_matmul
+    out = orig_tensor_matmul(self, other)
+
+    M = np.prod(self.shape[:-1])
+    K = self.shape[-1]
+    N = other.shape[-1]
+
+    with open('gemms.txt', 'a') as f:
+        print(f'Matmul({M}, {N}, {K})', file=f)
+
+    return out
+
+torch.Tensor.__matmul__ = tensor_matmul
