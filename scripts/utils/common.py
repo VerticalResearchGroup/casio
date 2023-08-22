@@ -30,6 +30,26 @@ apps = [
     'wavenet'
 ]
 
+apps2 = [
+    'meshgraphnets-cfd',
+    'meshgraphnets-cloth',
+    'muzero',
+    'nerf',
+    # 'pinn-ac',
+    # 'pinn-kdv',
+    'pinn-navier-stokes',
+    'pinn-schrodinger',
+    'qdtrack',
+    'swin-swinv2_base_patch4_window12_192_22k',
+    # 'swin-swinv2_base_patch4_window16_256',
+    # 'swin-swinv2_large_patch4_window12_192_22k',
+    'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
+    'tabnet',
+    'tacotron2',
+    'wavenet',
+    'gpt3'
+]
+
 app_pretty_names = {
     'meshgraphnets-cfd': 'MGN-CFD',
     'meshgraphnets-cloth': 'MGN-Cloth',
@@ -48,7 +68,8 @@ app_pretty_names = {
     'tacotron2': 'Tacotron2',
     'wavenet': 'WaveNet',
     'resnet50': 'Resnet50',
-    'bert': 'BERT'
+    'bert': 'BERT',
+    'gpt3': 'GPT3'
 }
 
 plats = ['p100', 'v100', 'a100']
