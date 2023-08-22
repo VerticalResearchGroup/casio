@@ -34,7 +34,7 @@ apps2 = [
     'meshgraphnets-cfd',
     'meshgraphnets-cloth',
     'muzero',
-    'nerf',
+    # 'nerf',
     # 'pinn-ac',
     # 'pinn-kdv',
     'pinn-navier-stokes',
@@ -44,6 +44,27 @@ apps2 = [
     # 'swin-swinv2_base_patch4_window16_256',
     # 'swin-swinv2_large_patch4_window12_192_22k',
     'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
+    'tabnet',
+    'tacotron2',
+    'wavenet',
+    'gpt3'
+]
+
+
+apps2_condensed = [
+    'meshgraphnets-cfd',
+    'meshgraphnets-cloth',
+    'muzero',
+    'nerf',
+    # 'pinn-ac',
+    # 'pinn-kdv',
+    'pinn-navier-stokes',
+    # 'pinn-schrodinger',
+    'qdtrack',
+    'swin-swinv2_base_patch4_window12_192_22k',
+    # 'swin-swinv2_base_patch4_window16_256',
+    # 'swin-swinv2_large_patch4_window12_192_22k',
+    # 'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
     'tabnet',
     'tacotron2',
     'wavenet',

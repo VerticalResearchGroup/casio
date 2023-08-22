@@ -8,12 +8,13 @@ all_fw_ops = set()
 all_kerns = {plat: set() for plat in utils.plats}
 
 
-print('\\begin{tabular}{l|r|rrr|rrr|rrr|rrr}')
+print('\\begin{tabular}{l|rrr|rrr|rrr}')
 print(f'\\multicolumn{{1}}{{c}}{{}} & \\multicolumn{{1}}{{c}}{{}} & \\multicolumn{{3}}{{c}}{{\\textbf{{Framework}}}} & \\multicolumn{{3}}{{c}}{{\\textbf{{P100}}}} & \\multicolumn{{3}}{{c}}{{\\textbf{{V100}}}} & \\multicolumn{{3}}{{c}}{{\\textbf{{A100}}}} \\\\ \hline')
 print(f'\\textbf{{Op Name}} & \\textbf{{ROI (s)}} & ', ' & '.join(['\\textbf{kDyn.}', '\\textbf{Uniq.}', '\\textbf{CU.}']*4), '\\\\')
 print('\\hline')
-for app in utils.apps:
+for app in ['meshgraphnets-cfd', 'gpt3']:
     optrace_file = utils.get_optrace_file_lb('a100', app)
+    prettyname = utils.app_pretty_names[app].replace('_', '\\_')
     cols = [prettyname]
     if os.path.exists(optrace_file):
         trace = utils.read_optrace(optrace_file)
@@ -32,7 +33,8 @@ for app in utils.apps:
             f'{len(all_fw_ops)}'
         ]
 
-    else:
+    # else:
+    #     assert False
 
 
     for plat in utils.plats:
@@ -44,7 +46,7 @@ for app in utils.apps:
 
         all_kerns[plat] = all_kerns[plat].union(kern_unames)
 
-        cols.append(f'{len(kernels)/1000:.1f}')
+        cols.append(f'{len(kernels)/1000:.0f}')
         cols.append(f'{len(kern_unames)}')
         cols.append(f'{len(all_kerns[plat])}')
 
