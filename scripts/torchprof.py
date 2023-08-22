@@ -33,7 +33,7 @@ def parse_torch_prof(filename):
                 CudaLaunchKernel(
                     ev['args']['correlation'], ev['ts'], ev['ts'] + ev['dur']))
 
-        elif 'cat' in ev and ev['cat'] == 'Kernel':
+        elif 'cat' in ev and (ev['cat'] == 'Kernel' or ev['cat'] == 'kernel'):
             kernel_durations[ev['args']['correlation']] = ev['dur']
 
     cuda_launch_kernels = [
@@ -57,7 +57,6 @@ def parse_torch_prof(filename):
 
         i = j
 
-    # print(f'Stitching {len(aten_ops)} events for {filename} ({len(cuda_launch_kernels)} cuda kernels)...')
     trace = []
     ki = 0
     for atop in deduped_aten_ops:
