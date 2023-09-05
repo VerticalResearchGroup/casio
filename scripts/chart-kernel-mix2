@@ -11,7 +11,7 @@ import utils
 
 apps = [
     'meshgraphnets-cfd',
-    'meshgraphnets-cloth',
+    # 'meshgraphnets-cloth',
     'muzero',
     'nerf',
     # 'pinn-ac',
@@ -26,8 +26,9 @@ apps = [
     'tabnet',
     'tacotron2',
     'wavenet',
-    # 'resnet50',
-    # 'bert'
+    'resnet50',
+    'bert',
+    'gpt3'
 ]
 
 data = """
@@ -62,29 +63,29 @@ keep = 30
 # plt.title('Kernel Mix', fontsize=10)
 
 
-fig = plt.figure(figsize=(utils.COL_WIDTH, 8.5))
-axs = fig.subplots(len(apps), 1)
+fig = plt.figure(figsize=(utils.TEXT_WIDTH, 4.5))
+axs = fig.subplots(len(apps) // 2, 2)
 
 glb_kernel_frac = {}
 
 for i, app in enumerate(apps):
-    batch = utils.get_large_batch_size('a100', app)
-    raw_file = utils.get_ncu_raw_file('a100', app, batch)
-    kernel_frac = {}
-    prettyname = utils.app_pretty_names[app]
-
     print(f'Processing {app}...')
+    kerns = utils.nsys_get_kernels(app, 'p100')
+    # kernel_frac = {}
 
-    names, data = utils.read_ncu_raw_file_numpy(
-        raw_file, ['gpu__time_duration.sum'])
+    unames = set()
+    tt = sum(k.time_ns for k in kerns)
 
-    tt = data[:, 0].sum()
+    for ki, k in enumerate(kerns):
+        name = k.name
+        unames.add(name)
+        if utils.is_gemm(k.name): name = 'gemm'
 
-    for ki, name in enumerate(names):
-        if utils.is_gemm(name): name = 'gemm'
 
-        if name not in kernel_frac: glb_kernel_frac[name] = 0
-        glb_kernel_frac[name] += data[ki, 0] / tt
+        if name not in glb_kernel_frac: glb_kernel_frac[name] = 0
+        glb_kernel_frac[name] += k.time_ns / tt
+
+    print(f'{app}: Unique kernels: {len(unames)}')
 
 ordered_kerns = list(glb_kernel_frac.keys())
 ordered_kerns.sort(key=lambda x: glb_kernel_frac.get(x, 0), reverse=True)
@@ -94,36 +95,37 @@ kern_idx['gemm'] = 'mm'
 
 ukerns_80 = set()
 ukerns_90 = set()
+ukerns_gemm = set()
 
 all_nkern_top_3_nongemm = set()
 all_nkern_top_3_gemm = set()
 
+print()
+
 for i, app in enumerate(apps):
-    batch = utils.get_large_batch_size('a100', app)
-    raw_file = utils.get_ncu_raw_file('a100', app, batch)
+    kerns = utils.nsys_get_kernels(app, 'p100')
+    tt = sum(k.time_ns for k in kerns)
+
     kernel_frac = {}
     all_kernel_frac = {}
     prettyname = utils.app_pretty_names[app]
 
-    # print(f'Processing {app}...')
-
-    names, data = utils.read_ncu_raw_file_numpy(
-        raw_file, ['gpu__time_duration.sum'])
-
-    tt = data[:, 0].sum()
 
     ugemms = set()
 
-    for ki, name in enumerate(names):
+    for ki, k in enumerate(kerns):
+        name = k.name
         if name not in all_kernel_frac: all_kernel_frac[name] = 0
-        all_kernel_frac[name] += data[ki, 0] / tt
+        all_kernel_frac[name] += k.time_ns / tt
 
         if utils.is_gemm(name):
             ugemms.add(name)
             name = 'gemm'
 
         if name not in kernel_frac: kernel_frac[name] = 0
-        kernel_frac[name] += data[ki, 0] / tt
+        kernel_frac[name] += k.time_ns / tt
+
+    ukerns_gemm |= ugemms
 
 
     ordered_kerns = list(kernel_frac.keys())
@@ -131,31 +133,6 @@ for i, app in enumerate(apps):
     keep_kerns = ordered_kerns[:keep]
     other_kerns = ordered_kerns[keep:]
 
-    if app != 'nerf':
-
-        ngemm_this_app = len(ugemms)
-        nngemm_this_app = 0
-        all_nkern_top_3_gemm |= ugemms
-        foo = kernel_frac.copy()
-        foo.pop('gemm', 0)
-
-        cum_frac = kernel_frac['gemm']
-
-        while cum_frac < top_3_fracs[app]:
-            k = max(foo, key=foo.get)
-
-            # k = random.choice(list(foo.keys()))
-            cum_frac += foo.pop(k, None)
-
-            if k in ugemms:
-                ngemm_this_app += 1
-                all_nkern_top_3_gemm.add(k)
-            else:
-                nngemm_this_app += 1
-                all_nkern_top_3_nongemm.add(k)
-            # del foo[k]
-
-        print(f'{app}: {ngemm_this_app} gemm, {nngemm_this_app} non-gemm')
 
     bars = [
         kernel_frac.get(k, 0) for k in keep_kerns
@@ -163,13 +140,13 @@ for i, app in enumerate(apps):
         sum(kernel_frac.get(k, 0) for k in other_kerns)
     ]
 
-    idx_80 = 0
-    idx_90 = 0
+    idx_80 = None
+    idx_90 = None
     cum_frac = 0
     for j, b in enumerate(bars):
         cum_frac += b
-        if cum_frac > 0.8 and idx_80 == 0: idx_80 = j
-        if cum_frac > 0.9 and idx_90 == 0: idx_90 = j
+        if cum_frac > 0.8 and idx_80 is None: idx_80 = j
+        if cum_frac > 0.9 and idx_90 is None: idx_90 = j
 
     cum_frac = 0
     for j, k in enumerate(ordered_kerns):
@@ -185,47 +162,56 @@ for i, app in enumerate(apps):
     for ki, k in enumerate(keep_kerns):
         if k == 'gemm':
             cs[ki] = colors[2]
-            # print(prettyname, 'gemm', kernel_frac[k])
 
-    axs[i].bar(
+
+    print(f'{prettyname}, {kernel_frac["gemm"]:.2f}, {len(ugemms):3d}, {idx_80:2d}, {idx_90 - idx_80:2d}')
+
+
+    ax = axs[i // 2, i % 2]
+    # ax = axs
+    ax.bar(
         xs + 0.5,
         bars,
         color=cs)
     # plt.boxplot(data, labels=keep_kerns + ['other'])
 
-    axs[i].axvline(idx_80 + 1.0, color=colors[3], linestyle='--', linewidth=1)
-    axs[i].axvline(idx_90 + 1.0, color=colors[4], linestyle='--', linewidth=1)
+    ax.axvline(idx_80 + 1.0, color=colors[3], linestyle='--', linewidth=1)
+    ax.axvline(idx_90 + 1.0, color=colors[4], linestyle='--', linewidth=1)
 
     # plt.xlabel('Opcode')
     # plt.ylabel('Total Frac. of Normalized App Runtime', fontsize=8)
 
-    # axs[i].set_title(prettyname, fontsize=8, loc='left')
+    # ax.set_title(prettyname, fontsize=8, loc='left')
 
-    axs[i].set_xticks(
+    ax.set_xticks(
         xs + 0.5,
         list(map(lambda k: kern_idx[k], keep_kerns)) + ['*'],
         rotation=90,
         fontsize=6)
 
-    axs[i].set_ylabel(prettyname, fontsize=8)
+    ax.set_ylabel(prettyname, fontsize=8)
 
-    axs[i].semilogy()
-    axs[i].tick_params(axis='both', labelsize=6)
+    ax.semilogy()
 
-    axs[i].set_xlim(0, len(keep_kerns) + 1)
+    ax.set_xlim(0, len(keep_kerns) + 1)
+    ax.tick_params(axis='both', labelsize=6)
 
     tot_time = sum(v for k, v in kernel_frac.items())
     gemm_time = kernel_frac.get('gemm')
 
-    h100_gemm = 1 / (1 - kernel_frac['gemm'] + kernel_frac['gemm'] / 2.5)
+    # h100_gemm = 1 / (1 - kernel_frac['gemm'] + kernel_frac['gemm'] / 2.5)
     # print(f'{h100_gemm}')
 
-
+print()
 print('(Top 3 cov) non-gemm:', len(all_nkern_top_3_nongemm))
 print('(Top 3 cov) gemm:', len(all_nkern_top_3_gemm))
 
-print('Unique kernels in top 80%:', len(ukerns_80))
-print('Unique kernels in top 90%:', len(ukerns_90))
+ukerns_80.remove('gemm')
+ukerns_90.remove('gemm')
+
+print('Unique GEMM kerns:', len(ukerns_gemm))
+print('Unique kernels in top 80% (excluding GEMM):', len(ukerns_80))
+print('Unique kernels in top 90% (excluding GEMM):', len(ukerns_90))
 
 plt.subplots_adjust(hspace=0, wspace=0)
 plt.tight_layout()

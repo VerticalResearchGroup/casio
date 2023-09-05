@@ -93,7 +93,9 @@ def get_runlens(plat, app):
 
     return avg_runlength, np.array(run_lengths), np.array(run_bins), np.array(gemm_lengths), np.array(is_gemm)
 
-for i, app in enumerate(utils.apps):
+apps = utils.apps + ['gpt3']
+
+for i, app in enumerate(reversed(apps)):
     batch = utils.get_large_batch_size(plat, app)
     raw_file = utils.get_ncu_raw_file(plat, app, batch)
     prettyname = utils.app_pretty_names[app]
@@ -170,19 +172,19 @@ for i, app in enumerate(utils.apps):
 
 
 ax0.set_title('(a) Chronological Order', fontsize=8)
-ax0.set_yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels0, fontsize=6)
+ax0.set_yticks(np.arange(0, len(apps)) * 4 + 3/2, labels0, fontsize=6)
 ax0.tick_params(axis='both', labelsize=6)
 
 ax0.set_xlim(0, 1.0)
-ax0.set_ylim(0, 4 * len(utils.apps) - 1)
+ax0.set_ylim(0, 4 * len(apps) - 1)
 
 ax1.set_title('(b) Grouped by State', fontsize=8)
 ax1.set_xlabel('Fraction of Time', fontsize=6)
-ax1.set_yticks(np.arange(0, len(utils.apps)) * 4 + 3/2, labels1, fontsize=6)
+ax1.set_yticks(np.arange(0, len(apps)) * 4 + 3/2, labels1, fontsize=6)
 ax1.tick_params(axis='both', labelsize=6)
 
 ax1.set_xlim(0, 1.0)
-ax1.set_ylim(0, 4 * len(utils.apps) - 1)
+ax1.set_ylim(0, 4 * len(apps) - 1)
 
 plt.tight_layout(pad=0)
 os.makedirs('charts', exist_ok=True)

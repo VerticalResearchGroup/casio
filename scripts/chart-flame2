@@ -26,11 +26,30 @@ ax1.set_xlabel('Fraction of Runtime', fontsize=6)
 
 runtime_at_util = [[] for _ in range(101)]
 
+apps = [
+    'gpt3'
+    'meshgraphnets-cfd',
+    # 'meshgraphnets-cloth',
+    'muzero',
+    'nerf',
+    # 'pinn-ac',
+    # 'pinn-kdv',
+    'pinn-navier-stokes',
+    'pinn-schrodinger',
+    'qdtrack',
+    'swin-swinv2_base_patch4_window12_192_22k',
+    # 'swin-swinv2_base_patch4_window16_256',
+    # 'swin-swinv2_large_patch4_window12_192_22k',
+    'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
+    'tabnet',
+    'tacotron2',
+    'wavenet'
+]
+
 objs = []
-for i, app in enumerate(apps):
+for app in apps:
     batch = utils.get_large_batch_size('a100', app)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
-    r, c = i // 4, i % 4
 
     prettyname = utils.app_pretty_names[app]
     print(f'Processing {prettyname}...')
@@ -56,27 +75,19 @@ for i, app in enumerate(apps):
     max_util = np.max(data[:, 1:], axis=1)
     times = data[:, 0]
 
-    # cutoff = 70
-
-    # for it in range(1, len(times)):
-    #     if max_util[it] > cutoff: break
-
     xs = np.cumsum(times) / times.sum()
 
-    # for i in range(len(xs)):
-    #     if xs[i] > time_thresh:
-    #         util_at_thresh.append(max_util[i])
-    #         break
+    for i in range(1, len(xs)):
+        if xs[i] > 0.6:
+            print(' '*20, max_util[i])
+            break
 
-
-    # foo.append(1 - xs[it])
-
+    if app != 'gpt3':
     # Fill in runtime_at_util
-    for util in range(101):
-        for i in range(1, len(xs)):
-            if max_util[i] > util: break
-        runtime_at_util[util].append(xs[i - 1])
-
+        for util in range(101):
+            for i in range(1, len(xs)):
+                if max_util[i] > util: break
+            runtime_at_util[util].append(xs[i - 1])
 
     objs.append(ax0.plot(xs, max_util, label=prettyname, linewidth=1)[0])
 

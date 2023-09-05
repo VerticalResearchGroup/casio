@@ -18,7 +18,29 @@ axs = fig.subplots(len(apps)//4, 5, sharex='col')
 # plt.xticks(fontsize=6)
 # plt.yticks(fontsize=6)
 
+apps = [
+    'gpt3',
+    'meshgraphnets-cfd',
+    # 'meshgraphnets-cloth',
+    'muzero',
+    'nerf',
+    # 'pinn-ac',
+    # 'pinn-kdv',
+    'pinn-navier-stokes',
+    'pinn-schrodinger',
+    'qdtrack',
+    'swin-swinv2_base_patch4_window12_192_22k',
+    # 'swin-swinv2_base_patch4_window16_256',
+    # 'swin-swinv2_large_patch4_window12_192_22k',
+    'swin-swinv2_large_patch4_window12to24_192to384_22kto1k_ft',
+    'tabnet',
+    'tacotron2',
+    'wavenet'
+]
+
+
 for i, app in enumerate(apps):
+
     batch = utils.get_large_batch_size('a100', app)
     raw_file = utils.get_ncu_raw_file('a100', app, batch)
     r, c = i // 4, i % 4
