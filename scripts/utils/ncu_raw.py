@@ -2,6 +2,7 @@ from .common import *
 
 
 def get_ncu_raw_file(plat : str, app : str, batch : int, samp : str = '10th'):
+    if app == 'gpt3': samp = 'all'
     return f'{CASIO}/casio-results/{plat}/{app}/ncu-{samp}-{app}-train-b{batch}-raw.txt'
 
 def read_ncu_raw_file(filename):

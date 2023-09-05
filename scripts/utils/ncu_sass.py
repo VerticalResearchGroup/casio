@@ -39,6 +39,7 @@ def kernels_are_equal(k1, k2):
     return True
 
 def get_ncu_sass_file(plat : str, app : str, batch : int, samp : str = '10th'):
+    if app == 'gpt3': samp = 'all'
     return f'{CASIO}/casio-results/{plat}/{app}/ncu-{samp}-{app}-train-b{batch}-sass.txt'
 
 def parse_ncu_sass(filename):
