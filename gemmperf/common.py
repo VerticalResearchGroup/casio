@@ -43,8 +43,10 @@ batch_ranges = {
 def benchmark(f, *args, flops=1, NI=None):
     torch.backends.cudnn.benchmark = False
 
+    torch.cuda.synchronize()
     t0 = time.perf_counter()
     f(*args)
+    torch.cuda.synchronize()
     t1 = time.perf_counter()
     t_est = t1 - t0
 
