@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import multibox
+from . import multibox
 
 from torchvision.models.resnet import resnet34
 

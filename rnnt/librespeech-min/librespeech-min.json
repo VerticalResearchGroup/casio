@@ -1,0 +1,21 @@
+[
+    {
+        "transcript": "if the reader will excuse me i will say nothing of my antecedents nor of the circumstances which led me to leave my native country the narrative would be tedious to him and painful to myself",
+        "files": [
+          {
+            "channels": 1,
+            "sample_rate": 16000.0,
+            "bitdepth": 16,
+            "bitrate": 256000.0,
+            "duration": 11.66,
+            "num_samples": 186560,
+            "encoding": "Signed Integer PCM",
+            "silent": false,
+            "fname": "./2412-153948-0000.wav",
+            "speed": 1
+          }
+        ],
+        "original_duration": 11.66,
+        "original_num_samples": 186560
+      }
+]

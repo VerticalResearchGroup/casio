@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from typing import List
 
-import melfbank
+from . import melfbank
 from typing import Optional, Tuple
 
 class LstmDrop(torch.nn.Module):
@@ -133,7 +133,10 @@ class Prediction(torch.nn.Module):
                 assert state is None
                 # N.B. Batch size is always 1 in inference mode as a result of
                 # the data-dependent control flow in RNN-T's inference.
-                y_embed = torch.zeros((1, 1, self.n_hidden), dtype=torch.float32)
+                y_embed = torch.zeros(
+                    (1, 1, self.n_hidden),
+                    device=self.embed.weight.device,
+                    dtype=self.embed.weight.dtype)
             else:
                 y_embed = self.embed(y)
 
@@ -282,7 +285,7 @@ class Rnnt(torch.nn.Module):
 
             while not_blank and symbols_added < self.max_symbols_per_step:
                 pred, new_state = self.prediction(
-                    torch.tensor([[last_sym]], dtype=torch.int64) if last_sym is not None else None,
+                    torch.tensor([[last_sym]], dtype=torch.int64, device=x.device) if last_sym is not None else None,
                     state)
 
                 logp = self.joint(enc, pred)[0, 0, 0, :]
@@ -302,7 +305,7 @@ class Rnnt(torch.nn.Module):
     def _infer(self, x_padded: torch.Tensor, x_lens: torch.Tensor):
         x_padded, x_lens = self.preprocessor(x_padded, x_lens)
         x_padded = x_padded.permute(2, 0, 1)
-        print(f'il = {x_padded.shape[0]}')
+        # print(f'il = {x_padded.shape[0]}')
         enc_logits, enc_logits_lens = self.encoder(x_padded, x_lens)
 
         output: List[List[int]] = []
@@ -313,7 +316,7 @@ class Rnnt(torch.nn.Module):
             sentence = self._decode(inseq, logitlen)
             output.append(sentence)
 
-        print(f'ol = {len(output[0])}')
+        # print(f'ol = {len(output[0])}')
         return output
 
     def forward(self, x_padded: torch.Tensor, x_lens: torch.Tensor, y : torch.Tensor = None) -> Tuple[torch.Tensor, torch.Tensor]:

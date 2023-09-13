@@ -1,10 +1,17 @@
-import params
 
-import cudaprofile
 import time
 import os
+
+try:
+    import utils.cudaprofile as cudaprofile
+    import utils.params as params
+except ImportError:
+    import cudaprofile
+    import params
+
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = str(int(params.devname.split(':')[1]))
+os.environ["CUDA_VISIBLE_DEVICES"] = \
+    '' if params.dev_id is None else str(params.dev_id)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import tensorflow as tf
@@ -40,3 +47,4 @@ def benchmark_wrapper(appname, roi, sess):
     tt1 = time.perf_counter()
     print(f'Total Time: {tt1 - tt0}')
 
+def benchmark_wrapper2(roi): return benchmark_wrapper(params.appname, roi)

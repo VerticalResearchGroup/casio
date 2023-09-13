@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from models.base_model_r34 import ResNet34
 import numpy as np
 from math import sqrt, ceil
 import itertools

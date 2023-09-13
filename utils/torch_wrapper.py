@@ -1,11 +1,16 @@
 import torch
-import cudaprofile
+
 from torch.profiler import profile, record_function, ProfilerActivity
 import time
 import platform
 import os
 
-import params
+try:
+    import utils.cudaprofile as cudaprofile
+    import utils.params as params
+except ImportError:
+    import cudaprofile
+    import params
 
 def benchmark_wrapper(appname, roi):
     outdir = f'{params.casio}/output/{params.plat}/{appname}'
@@ -37,13 +42,21 @@ def benchmark_wrapper(appname, roi):
         prof.export_chrome_trace(f'{outdir}/trace-b{params.bs}-n{params.ni}.json')
 
     else:
+        ev_start = torch.cuda.Event(enable_timing=True)
+        ev_end = torch.cuda.Event(enable_timing=True)
+
         t0 = time.perf_counter()
         torch.cuda.synchronize()
+        ev_start.record()
         for i in range(params.ni): roi()
+        ev_end.record()
         torch.cuda.synchronize()
         t1 = time.perf_counter()
-        print(f'Throughput: {params.ni * params.bs / (t1 - t0)}')
+        tt = ev_start.elapsed_time(ev_end) / 1000
+        print(f'Throughput: {params.ni * params.bs / (tt)}')
 
     tt1 = time.perf_counter()
 
     print(f'Total Time: {tt1 - tt0}')
+
+def benchmark_wrapper2(roi): return benchmark_wrapper(params.appname, roi)
