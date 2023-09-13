@@ -30,6 +30,11 @@ with figure(COL_WIDTH, 1.3, 1, 3, 'gemmperf-hist', sharey=True) as (fig, axs):
     axs[1].set_xlim(0, 1)
     axs[2].set_xlim(0, 1)
 
+
+    axs[0].set_xticks([0, 0.5, 1], labels=['0', '50', '100'])
+    axs[1].set_xticks([0, 0.5, 1], labels=['0', '50', '100'])
+    axs[2].set_xticks([0, 0.5, 1], labels=['0', '50', '100'])
+
     axs[0].set_ylabel('Count of Kernels', fontsize=6)
 
     axs[0].set_title('P100', fontsize=8)
@@ -41,6 +46,6 @@ with figure(COL_WIDTH, 1.3, 1, 3, 'gemmperf-hist', sharey=True) as (fig, axs):
     axs[1].tick_params(axis='both', labelsize=6)
     axs[2].tick_params(axis='both', labelsize=6)
 
-    axs[1].set_xlabel('GEMM performance (fraction of peak)', fontsize=8)
+    axs[1].set_xlabel('GEMM performance (Percentage of Peak)', fontsize=8)
     fig.tight_layout()
-    plt.subplots_adjust(wspace=0.2, left=0.13, right=0.98, top=0.86, bottom=0.3)
+    plt.subplots_adjust(wspace=0.2, left=0.13, right=0.97, top=0.86, bottom=0.3)

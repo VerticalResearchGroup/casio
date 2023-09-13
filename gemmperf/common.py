@@ -73,8 +73,18 @@ def benchmark(f, *args, flops=1, NI=None):
     return flops * NI / tt
 
 
+class Operator:
+    @property
+    def read_bytes(self): raise NotImplementedError()
+
+    @property
+    def flops(self): raise NotImplementedError()
+
+    @property
+    def ami(self): return self.flops / self.read_bytes
+
 @dataclass(frozen=True)
-class Matmul:
+class Matmul(Operator):
     M : int
     N : int
     K : int
@@ -86,6 +96,14 @@ class Matmul:
     @property
     def tr_b(self): return self.layout[1] == 'T'
 
+    @property
+    def read_bytes(self, dtype=torch.float16):
+        dtsize = 2 if dtype == torch.float16 else 4
+        return dtsize * (self.M * self.K + self.K * self.N)
+
+    @property
+    def flops(self): return 2 * self.M * self.N * self.K
+
     def benchmark(self, dev, dtype):
         if not self.tr_a: A = torch.randn(self.M, self.K, device=dev, dtype=dtype)
         else: A = torch.randn(self.K, self.M, device=dev, dtype=dtype).t()
@@ -93,12 +111,12 @@ class Matmul:
         if not self.tr_b: B = torch.randn(self.K, self.N, device=dev, dtype=dtype)
         else: B = torch.randn(self.N, self.K, device=dev, dtype=dtype).t()
 
-        return benchmark(torch.matmul, A, B, flops=2 * self.M * self.N * self.K)
+        return benchmark(torch.matmul, A, B, flops=self.flops)
 
 def Linear(M, N, K): return Matmul(M, N, K, NT)
 
 @dataclass(frozen=True)
-class BatchMatmul:
+class BatchMatmul(Operator):
     L : int
     M : int
     N : int
@@ -111,6 +129,14 @@ class BatchMatmul:
     @property
     def tr_b(self): return self.layout[1] == 'T'
 
+    @property
+    def read_bytes(self, dtype=torch.float16):
+        dtsize = 2 if dtype == torch.float16 else 4
+        return dtsize * (self.L * self.M * self.K + self.L * self.K * self.N)
+
+    @property
+    def flops(self): return 2 * self.L * self.M * self.N * self.K
+
     def benchmark(self, dev, dtype):
         if not self.tr_a: A = torch.randn(self.L, self.M, self.K, device=dev, dtype=dtype)
         else: A = torch.randn(self.L, self.K, self.M, device=dev, dtype=dtype).transpose(-1, -2)
@@ -118,10 +144,10 @@ class BatchMatmul:
         if not self.tr_b: B = torch.randn(self.L, self.K, self.N, device=dev, dtype=dtype)
         else: B = torch.randn(self.L, self.N, self.K, device=dev, dtype=dtype).transpose(-1, -2)
 
-        return benchmark(torch.bmm, A, B, flops=2 * self.L * self.M * self.N * self.K)
+        return benchmark(torch.bmm, A, B, flops=self.flops)
 
 @dataclass(frozen=True)
-class Conv2D:
+class Conv2D(Operator):
     B : int
     C : int
     K : int
@@ -133,8 +159,16 @@ class Conv2D:
     S : int
     stride : int
 
+    @property
+    def read_bytes(self, dtype=torch.float16):
+        dtsize = 2 if dtype == torch.float16 else 4
+        return dtsize * (self.B * self.C * self.H * self.W + self.K * self.C * self.R * self.S)
+
+    @property
+    def flops(self): return 2 * self.B * self.C * self.K * self.P * self.Q * self.R * self.S
+
     def benchmark(self, dev, dtype):
         conv = torch.nn.Conv2d(self.C, self.K, (self.R, self.S), stride=self.stride, padding=0).to(dev).to(dtype)
         x = torch.randn(self.B, self.C, self.H, self.W, device=dev, dtype=dtype)
-        return benchmark(conv, x, flops=2 * self.B * self.C * self.K * self.P * self.Q * self.R * self.S)
+        return benchmark(conv, x, flops=self.flops)
 
