@@ -1,16 +1,16 @@
 #!/bin/bash
 APPNAME=resnet50
-INFER_CMD=python -m resnet50.infer
-TRAIN_CMD=python -m resnet50.train
+INFER_CMD="python -m resnet50.infer"
+TRAIN_CMD="python -m resnet50.train"
 
 INFER_DT=FP16
 TRAIN_DT=FP16
 
 I_SMALL_BS=1
-I_LARGE_BS=2048
+I_LARGE_BS=512
 
 T_SMALL_BS=1
-T_LARGE_BS=2048
+T_LARGE_BS=512
 
 APP=$APPNAME-infer DT=$INFER_DT BS=$I_SMALL_BS NW=30 NI=30 $CASIO/utils/run_bench.sh $INFER_CMD
 APP=$APPNAME-infer DT=$INFER_DT BS=$I_SMALL_BS NW=30 NI=30 $CASIO/utils/run_prof.sh $INFER_CMD
