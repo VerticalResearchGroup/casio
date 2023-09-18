@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from scipy.spatial.distance import pdist
+from scipy.spatial.distance import squareform
+import sys
+import numpy as np
+import random
+import utils
+
+
+fname = utils.get_nsys_gputrace_file('a100', 'gpt3', 1)
+print(fname)
+nsys_trace = utils.read_nsys_trace(fname)
+nsys_tt = sum(k.time_ns for k in nsys_trace)
+nsys_gt = sum(k.time_ns for k in nsys_trace if utils.is_gemm(k.name))
+print(f'NSYS total time (s): {nsys_tt / 1e9:.2f}')
+print(f'NSYS gemm time (s): {nsys_gt / 1e9:.2f}')
+print(f'NSYS %GEMM time: {100 * nsys_gt / nsys_tt:.2f}%')
+print()
+
+
+fname = utils.get_optrace_file_lb('a100', 'gpt3')
+print(fname)
+fw_trace = utils.read_optrace(fname)
+fw_tt = sum(op.accel_time for op in fw_trace)
+fw_gt = sum(op.accel_time for op in fw_trace if op.name == "matmul")
+print(f'FW total time (s): {fw_tt:.2f}')
+print(f'FW gemm time (s): {fw_gt:.2f}')
+print(f'FW %GEMM time: {100 * fw_gt / fw_tt:.2f}%')
+
