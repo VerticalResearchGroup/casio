@@ -270,8 +270,17 @@ class Rnnt(torch.nn.Module):
         )
 
     def _train(self, x_padded: torch.Tensor, x_lens: torch.Tensor, y : torch.Tensor):
-        assert y is not None
-        pass
+        # print(f'x_padded = {x_padded.shape}')
+        # print(f'x_lens = {x_lens.shape}')
+        # print(f'y = {y.shape}')
+        x_padded, x_lens = self.preprocessor(x_padded, x_lens)
+        x_padded = x_padded.permute(2, 0, 1)
+        # print(f'il = {x_padded.shape[0]}')
+        enc_logits, enc_logits_lens = self.encoder(x_padded, x_lens)
+        pred, new_state = self.prediction(y)
+        return self.joint(enc_logits, pred)
+
+
 
     def _decode(self, x: torch.Tensor, out_len: torch.Tensor) -> List[int]:
         state: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
