@@ -1,16 +1,16 @@
 #!/bin/bash
 APPNAME=bert
-INFER_CMD=python -m bert.infer
-TRAIN_CMD=python -m bert.train
+INFER_CMD="python -m bert.infer"
+TRAIN_CMD="python -m bert.train"
 
 INFER_DT=FP16
 TRAIN_DT=FP16
 
 I_SMALL_BS=1
-I_LARGE_BS=64
+I_LARGE_BS=32
 
 T_SMALL_BS=1
-T_LARGE_BS=64
+T_LARGE_BS=32
 
 APP=$APPNAME-infer DT=$INFER_DT BS=$I_SMALL_BS NW=30 NI=30 $CASIO/utils/run_bench.sh $INFER_CMD
 APP=$APPNAME-infer DT=$INFER_DT BS=$I_SMALL_BS NW=30 NI=30 $CASIO/utils/run_prof.sh $INFER_CMD
