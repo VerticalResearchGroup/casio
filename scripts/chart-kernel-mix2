@@ -70,7 +70,7 @@ glb_kernel_frac = {}
 
 for i, app in enumerate(apps):
     print(f'Processing {app}...')
-    kerns = utils.nsys_get_kernels(app, 'p100')
+    kerns = utils.nsys_get_kernels(app, 'a100')
     # kernel_frac = {}
 
     unames = set()
@@ -103,7 +103,7 @@ all_nkern_top_3_gemm = set()
 print()
 
 for i, app in enumerate(apps):
-    kerns = utils.nsys_get_kernels(app, 'p100')
+    kerns = utils.nsys_get_kernels(app, 'a100')
     tt = sum(k.time_ns for k in kerns)
 
     kernel_frac = {}
