@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from model.layers import (
+from .layers import (
     DownsampleBlock,
     InputBlock,
     OutputLayer,
