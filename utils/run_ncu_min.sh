@@ -57,6 +57,6 @@ TMPDIR=/nobackup/medavies/tmp CUDA_LAUNCH_BLOCKING=1 NW=1 NI=1 MODE=ncu LD_LIBRA
     --target-processes all \
     --profile-from-start no \
     --replay-mode application \
-    --metrics gpu__time_duration.sum,sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed,gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed,sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_elapsed \
+    --metrics gpu__time_duration.sum,launch__thread_count,sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed,gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed,sm__inst_executed_pipe_fp16.avg.pct_of_peak_sustained_elapsed,sm__throughput.avg.pct_of_peak_sustained_elapsed \
     --csv \
     $* | tee $ODIR/ncu-min-$SAMP-$APP-b$BS-raw.txt
