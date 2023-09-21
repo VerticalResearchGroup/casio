@@ -17,3 +17,5 @@ rsync -a output/$PLAT/dlrm-infer/ casio-results/$PLAT/dlrm-infer
 rsync -a output/$PLAT/dlrm-train/ casio-results/$PLAT/dlrm-train
 rsync -a output/$PLAT/unet-infer/ casio-results/$PLAT/unet-infer
 rsync -a output/$PLAT/unet-train/ casio-results/$PLAT/unet-train
+rsync -a output/$PLAT/rnnt-infer/ casio-results/$PLAT/rnnt-infer
+rsync -a output/$PLAT/rnnt-train/ casio-results/$PLAT/rnnt-train
