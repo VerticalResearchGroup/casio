@@ -3,6 +3,24 @@ CASIO DL Application Suite
 
 Link to Data: [Google Drive](https://drive.google.com/drive/folders/1Uo0fmSbEVvzXPnZV04a4aXZTF1KkRA4b?usp=sharing)
 
+## Structure of Released Data
+
+The released data includes for the following for each platform and each application (`$PLAT/$APP/*`):
+* Walk clock time (`bench-.*`)
+* TF or Pytorch profile output (`prof-.*`)
+* NSYS output (`nsys-.*nsys-rep`)
+* NCU output (`ncu-.*`)
+
+The NSYS file can be read by NSIGHT Systems. The NCU file is raw text format (prepended with a header row and then data in CSV form. Data follows after a line that says -- PROF --)
+
+The `summaries/` directory includes:
+* A file for each platform indicating the smallest and largest batch size we ran (`$PLAT-<small/large>-batch-list`)
+* For each platform / application: summaries extracted from the NSYS output (Can be recreated from `nsys-rep` files)
+
+The `postproc/` directory includes framework operator traces produced from framework profiler data (`$PLAT/$APP/op-trace-*.csv`)
+
+Finally, the data we recorded on GEMM performance can be found [here](https://github.com/VerticalResearchGroup/casio-gemms/blob/main/gemms.csv).
+
 
 How to run these Apps
 =====================
